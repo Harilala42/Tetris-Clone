@@ -35,14 +35,22 @@ body {
     }
 
     .action {
-        display: inline-block;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: row;
+        gap: 2rem;
     }
 
     button {
         width: 3rem;
-        height: auto;
+        height: 3rem;
         border: none;
-        background-color: #0000CD;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 5px;
+        background-color: #6495ED;
     }
 
     #canvas {
