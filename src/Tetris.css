@@ -38,6 +38,14 @@ body {
         display: inline-block;
     }
 
+    button {
+        width: 3rem;
+        height: auto;
+        border: none;
+        background: none;
+        cursor: pointer;
+    }
+
     #canvas {
         max-width: 90%;
         border: 1px solid black;
