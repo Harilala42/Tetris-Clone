@@ -42,8 +42,7 @@ body {
         width: 3rem;
         height: auto;
         border: none;
-        background: none;
-        cursor: pointer;
+        background-color: #0000CD;
     }
 
     #canvas {
