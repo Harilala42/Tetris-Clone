@@ -17,6 +17,12 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-direction: column;
+    position: fixed;
+}
+
+.action {
+    display: none;
 }
 
 #canvas {
@@ -26,6 +32,10 @@ body {
 @media screen and (max-width: 768px) {
     html {
         font-size: 12px;
+    }
+
+    .action {
+        display: inline-block;
     }
 
     #canvas {

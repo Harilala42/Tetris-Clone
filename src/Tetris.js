@@ -276,6 +276,14 @@ function displayMessage(msg, size, position) {
     ctx.fillText(msg, positionX, positionY);
 }
 
+function pauseGame() {
+    if (!isSceneLoading) return;
+
+    isGamePaused = !isGamePaused;
+    doesPauseAlreadyDisplay = false;
+    return isGamePaused ? bgMusic.pause() : bgMusic.play();
+}
+
 function gameOver() {
     let isGameOver = false;
     for (let i = 1; i < numberBlockWidth - 1; i++) {
@@ -529,6 +537,9 @@ function probaCollision(coord) {
 
 window.addEventListener('resize', resizeCanvas);
 
+document.getElementById('restart').addEventListener('click', restartGame);
+document.getElementById('pause').addEventListener('click', pauseGame);
+
 let tapStartTime, tapStartX, tapStartY;
 canvas.addEventListener('touchstart', (event) => {
     const touch = event.touches[0];
@@ -590,11 +601,8 @@ document.addEventListener('keydown', (event) => {
 
     if (key === 'Enter') 
         return restartGame();
-    else if (key === ' ' && isSceneLoading) {
-        isGamePaused = !isGamePaused;
-        doesPauseAlreadyDisplay = false;
-        return isGamePaused ? bgMusic.pause() : bgMusic.play();
-    }
+    else if (key === ' ')
+        return pauseGame();
 
     if (isGamePaused || !isSceneLoading || !currentBlock) return;
 
