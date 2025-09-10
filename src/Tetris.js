@@ -148,7 +148,7 @@ export class Block {
         for (let i = 0; i <= this.coord.length - 1; i++) {
             let X = this.coord[i][0];
             let Y = this.coord[i][1];
-            if (storeCoord[X - 1][Y] !== 'full') return (true);
+            if (storeCoord[X - 1][Y] === 'full') return (true);
         }
         return (false);
     }
@@ -158,7 +158,7 @@ export class Block {
         for (let i = 0; i <= this.coord.length - 1; i++) {
             let X = this.coord[i][0];
             let Y = this.coord[i][1];
-            if (storeCoord[X + 1][Y] !== 'full') return (true);
+            if (storeCoord[X + 1][Y] === 'full') return (true);
         }
         return (false);
     }
