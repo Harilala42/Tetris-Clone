@@ -26,11 +26,6 @@ const bgMusic = document.getElementById('background-music');
 const bonusSound = document.getElementById('line-clear-sound');
 const gameOverSound = document.getElementById('game-over-sound');
 
-const font = new FontFace('Chewy', "url('/fonts/Chewy-Regular.ttf')");
-font.load()
-    .then((loadedFont) => document.fonts.add(loadedFont))
-    .catch((err) => console.error(`Failed to load font: ${err}`));
-
 const TETROMINOES = {
     1: { color: 'orange', shape: [[8,4],[8,3],[9,3],[10,3],[11,3]], sign: 'L' }, 
     2: { color: 'yellow', shape: [[9,2],[8,3],[9,3],[10,3]], sign: 'T' }, 
@@ -198,10 +193,8 @@ function resizeCanvas() {
         score = window.localStorage.getItem('score') || 0;
         if (!score) window.localStorage.setItem('score', '0');
         
-        document.fonts.ready.then(() => {
-            displayMessage(`${viewportWidth > 768 ? 'Press Enter' : 'Tap'} to Start 🕹️!`, 2, 0.4);
-            displayMessage(score, 5, 0.5);
-        });
+        displayMessage(`${viewportWidth > 768 ? 'Press Enter' : 'Tap'} to Start 🕹️!`, 2, 0.4);
+        displayMessage(score, 5, 0.5);
     }
 }
 

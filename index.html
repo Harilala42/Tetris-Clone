@@ -5,10 +5,10 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Game Tetris</title>
         <link rel="stylesheet" href="/src/Tetris.css" type="text/css">
+        <link href="https://fonts.googleapis.com/css2?family=Chewy&display=swap" rel="stylesheet">
     </head>
     <body>
         <div class="container">
-            <canvas id="canvas"></canvas>
             <div class="action">
                 <button id="pause" aria-label="Pause the game">
                     <img src="/images/pause.svg" alt="Pause the game">
@@ -17,6 +17,7 @@
                     <img src="/images/restart.svg" alt="Restart the game">
                 </button>
             </div>
+            <canvas id="canvas"></canvas>
         </div>
         <audio id="line-clear-sound" src="/sounds/bonus.mp3" preload="auto"></audio>
         <audio id="game-over-sound" src="/sounds/game-over.mp3" preload="auto"></audio>
