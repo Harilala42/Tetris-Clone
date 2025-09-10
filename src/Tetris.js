@@ -257,16 +257,18 @@ function playSound(sound, loop) {
 }
 
 function displayMessage(msg, size, position) {
-    ctx.lineWidth = 5;
-    ctx.fillStyle = 'black';
-    ctx.strokeStyle = 'white';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    const positionX = width / 2;
-    const positionY = height * position;
-    ctx.font = `${size}rem 'Chewy'`;
-    ctx.strokeText(msg, positionX, positionY);
-    ctx.fillText(msg, positionX, positionY);
+    document.fonts.ready.then(() => {
+        ctx.lineWidth = 5;
+        ctx.fillStyle = 'black';
+        ctx.strokeStyle = 'white';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const positionX = width / 2;
+        const positionY = height * position;
+        ctx.font = `${size}rem 'Chewy'`;
+        ctx.strokeText(msg, positionX, positionY);
+        ctx.fillText(msg, positionX, positionY);
+    });
 }
 
 function pauseGame() {
