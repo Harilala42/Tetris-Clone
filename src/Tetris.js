@@ -58,7 +58,7 @@ const GRADIENT_COLORS = {
 	Block class represents a tetromino.
 	Handles drawing, movement, collision, and rotation.
 */
-class Block {
+export class Block {
     constructor(coord, color, sign) {
         // Deep copy coordinates to avoid mutation
         this.coord = JSON.parse(JSON.stringify(coord));
@@ -89,20 +89,22 @@ class Block {
     // Checks if any part of the block collides with the ground
     collisionWithGround() {
         for (let i = 0; i <= this.coord.length - 1; i++) {
-            if (collisionWithGround(this.coord[(this.coord.length - i) - 1],
-                this.coord[(this.coord.length - (this.coord.length - i))]))
-                return (true);
+            let YCoord = this.coord[i][1];
+            if (YCoord === numberBlockHeight - 1) return (true);
         }
         return (false);
     }
 
     // Checks if any part of the block collides with another block
     collisionWithBlock() {
-        for (let i = 0; i <= this.coord.length - 1; i++)
-            if (collisionWithBlock(this.coord[i])) return(true);
+        for (let i = 0; i <= this.coord.length - 1; i++) {
+            let XCoord = this.coord[i][0];
+            let YCoord = this.coord[i][1] + 1;
+            if (storeCoord[XCoord][YCoord] === 'full') return (true);
+        }
         return (false);
     }
-    
+
     // Moves the block in the specified direction ('left', 'right', 'down')
     direction(direction) {
         for (let i = 0; i <= this.coord.length - 1; i++) {
@@ -143,18 +145,24 @@ class Block {
 
     // Checks collision with left wall or block
     allLeftCollision() {
-        for (let i = 0; i <= this.coord.length - 1; i++)
-            if (allLeftCollision(this.coord[i])) return (true);
+        for (let i = 0; i <= this.coord.length - 1; i++) {
+            let X = this.coord[i][0];
+            let Y = this.coord[i][1];
+            if (storeCoord[X - 1][Y] !== 'full') return (true);
+        }
         return (false);
     }
-    
+
     // Checks collision with right wall or block
     allRightCollision() {
-        for (let i = 0; i <= this.coord.length - 1; i++)
-            if (allRightCollision(this.coord[i])) return (true);
+        for (let i = 0; i <= this.coord.length - 1; i++) {
+            let X = this.coord[i][0];
+            let Y = this.coord[i][1];
+            if (storeCoord[X + 1][Y] !== 'full') return (true);
+        }
         return (false);
     }
-    
+
     // Checks for probable collision below the block
     probaCollision() {
         for (let i = 0; i <= this.coord.length - 1; i++)
@@ -486,8 +494,8 @@ function fillGrid() {
 /*
 	Checks for and clears full lines, updates score and speed.
 */
-let lastScore = 0; // Last score checkpoint for speed increase
-function reduceStack() {
+let lastScore = 0;		// Last score checkpoint for speed increase
+export function reduceStack() {
     for (let y = numberBlockHeight - 1; y >= 0; y--) {
         let isRowFull = true;
         for (let x = 1; x < numberBlockWidth - 1; x++) {
@@ -542,34 +550,6 @@ function reduceStack() {
     }
 }
 
-// --- Collision and Movement Helpers ---
-
-/*
-	Checks if a cell collides with a placed block below.
-*/
-function collisionWithBlock(coord) {
-    let XCoord = coord[0];
-    let YCoord = coord[1] + 1;
-    if (storeCoord[XCoord][YCoord] === 'full')
-        return (true);
-    return (false);
-}
-
-/*
-	Checks if a cell collides with the ground.
-*/
-function collisionWithGround(coord1, coord2) {
-    let xcoord = coord2[0];
-    let ycoord = coord2[1];
-    let XCoord = coord1[0];
-    let YCoord = coord1[1];
-
-    if ((XCoord === 0 || YCoord === (numberBlockHeight - 1)) 
-        || (xcoord === 0 || ycoord === (numberBlockHeight - 1)))
-        return(true);
-    return(false);
-}
-
 /*
 	Marks cells as occupied in the grid.
 */
@@ -603,28 +583,6 @@ function orientationBlock(coord, direction) {
         default:
             return (YCoord += 1);
     }
-}
-
-/*
-	Checks for collision to the left.
-*/
-function allLeftCollision(coord) {
-    let X = coord[0];
-    let Y = coord[1];
-    if (storeCoord[X - 1][Y] !== 'full')
-        return (false);
-    return (true);
-}
-
-/*
-	Checks for collision to the right.
-*/
-function allRightCollision(coord) {
-    let X = coord[0];
-    let Y = coord[1];
-    if (storeCoord[X + 1][Y] !== 'full')
-        return (false);
-    return (true);
 }
 
 /*
