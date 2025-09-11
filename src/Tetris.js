@@ -7,9 +7,9 @@
 
 // --- Global Variables ---
 let ctx;                                // Canvas 2D context
-let score;                              // Current score
 let canvas;                             // Canvas DOM element
 let bgImage;                            // Background image
+export let score = 0;                       // Current score
 let currentBlock = null;                // Currently falling tetromino
 let isGridReady = false;                // Flag: grid initialized
 let isGamePaused = false;               // Flag: game paused
@@ -18,7 +18,7 @@ let isBgMusicPlayed = false;            // Flag: background music started
 let isGameOverSoundPlayed = false;      // Flag: game over sound played
 let doesPauseAlreadyDisplay = false;    // Flag: pause message shown
 let storeBlock = [];            		// Array of placed blocks
-let storeCoord = [];            		// 2D array: grid cell states
+export let storeCoord = [];            	// 2D array: grid cell states
 
 // --- Game Constants ---
 const NB_BLOCK = 5;             		// Number of tetromino types
@@ -197,8 +197,8 @@ function updateFrame(time = 0) {
     requestAnimationFrame(updateFrame);
 }
 
-const numberBlockHeight = 30;
-const numberBlockWidth = 20;
+export const numberBlockHeight = 30;
+export const numberBlockWidth = 20;
 let width, height, sizeblock, viewportWidth;
 
 /*
