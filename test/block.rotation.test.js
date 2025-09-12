@@ -12,7 +12,7 @@ describe("Block rotation", () => {
         }
     });
 
-    test("O block does not rotate", () => {
+    test("O block not allowed to rotate", () => {
         const block = new Block([[4,1],[5,1],[4,2],[5,2]], "blue", "O");
         const before = JSON.stringify(block.coord);
         block.rotation();
@@ -26,8 +26,16 @@ describe("Block rotation", () => {
         expect(JSON.stringify(block.coord)).toEqual(expected);
     });
 
-    test("L block does not rotate into left wall", () => {
+    test("L block shouldn't rotate into left wall", () => {
         const block = new Block([[2,6],[1,3],[1,4],[1,5],[1,6]], "orange", "L");
+        const before = JSON.stringify(block.coord);
+        block.rotation();
+        expect(JSON.stringify(block.coord)).toBe(before);
+    });
+
+    test("L block shouldn't rotate next to a placed block", () => {
+        storeCoord[10][2] = "full";
+        const block = new Block([[8,2],[9,2],[10,2],[11,2],[11,3]], "purple", "J");
         const before = JSON.stringify(block.coord);
         block.rotation();
         expect(JSON.stringify(block.coord)).toBe(before);

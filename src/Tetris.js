@@ -86,25 +86,6 @@ export class Block {
         currentBlock = null;
     }
 
-    // Checks if any part of the block collides with the ground
-    collisionWithGround() {
-        for (let i = 0; i <= this.coord.length - 1; i++) {
-            let YCoord = this.coord[i][1];
-            if (YCoord === numberBlockHeight - 1) return (true);
-        }
-        return (false);
-    }
-
-    // Checks if any part of the block collides with another block
-    collisionWithBlock() {
-        for (let i = 0; i <= this.coord.length - 1; i++) {
-            let XCoord = this.coord[i][0];
-            let YCoord = this.coord[i][1] + 1;
-            if (storeCoord[XCoord][YCoord] === 'full') return (true);
-        }
-        return (false);
-    }
-
     // Moves the block in the specified direction ('left', 'right', 'down')
     direction(direction) {
         for (let i = 0; i <= this.coord.length - 1; i++) {
@@ -143,6 +124,25 @@ export class Block {
         if (!isWallsKicked) this.coord = newCoords;
     }
 
+        // Checks if any part of the block collides with the ground
+    collisionWithGround() {
+        for (let i = 0; i <= this.coord.length - 1; i++) {
+            let YCoord = this.coord[i][1];
+            if (YCoord === numberBlockHeight - 1) return (true);
+        }
+        return (false);
+    }
+
+    // Checks if any part of the block collides with another block
+    collisionWithBlock() {
+        for (let i = 0; i <= this.coord.length - 1; i++) {
+            let XCoord = this.coord[i][0];
+            let YCoord = this.coord[i][1] + 1;
+            if (storeCoord[XCoord][YCoord] === 'full') return (true);
+        }
+        return (false);
+    }
+
     // Checks collision with left wall or block
     allLeftCollision() {
         for (let i = 0; i <= this.coord.length - 1; i++) {
@@ -165,8 +165,14 @@ export class Block {
 
     // Checks for probable collision below the block
     probaCollision() {
-        for (let i = 0; i <= this.coord.length - 1; i++)
-            if (probaCollision(this.coord[i])) return (true);
+        for (let i = 0; i <= this.coord.length - 1; i++) {
+            let X = this.coord[i][0];
+            for (let j = 1; j <= BOX_COLLIDER; j++) {
+                let Y = this.coord[i][1] + j;
+                if (storeCoord[X][Y] === 'full' || Y === numberBlockHeight - 1)
+                    return (true);
+            }
+        }
         return (false);
     }
 }
@@ -583,24 +589,6 @@ function orientationBlock(coord, direction) {
         default:
             return (YCoord += 1);
     }
-}
-
-/*
-	Checks for probable collision below the block (for soft drop).
-*/
-function probaCollision(coord) {
-    let X = coord[0];
-    let Y = coord[1];
-
-    for (let i = 1; i <= BOX_COLLIDER; i++) {
-        if (storeCoord[X][Y + i] === 'full')
-            return (true);
-        for (let j = 0; j <= numberBlockWidth - 1; j++) {
-            if ((X === j && Y === (numberBlockHeight - 1) - i))
-                return (true);
-        }
-    }
-    return (false);
 }
 
 // --- Event Listeners ---

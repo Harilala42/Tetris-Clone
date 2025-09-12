@@ -5,10 +5,7 @@ global.document = {
         // Mock audio elements
         if (id === 'background-music' || id === 'line-clear-sound' || id === 'game-over-sound') {
             return {
-                play: () => ({
-                    then: (cb) => cb(),
-                    catch: () => {}
-                }),
+                play: () => Promise.resolve(),
                 pause: () => {},
                 volume: 1.0,
                 currentTime: 0,
@@ -75,4 +72,4 @@ global.window = {
     addEventListener: () => {}
 };
 
-global.requestAnimationFrame = (cb) => setInterval(cb, 0);
+global.requestAnimationFrame = (cb) => setTimeout(cb, 0);

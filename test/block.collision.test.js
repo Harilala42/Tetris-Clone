@@ -12,6 +12,11 @@ describe("Block collision detection", () => {
         }
     });
 
+    test("no collision when space below", () => {
+        const block = new Block([[5, 5]], "blue", "O");
+        expect(block.collisionWithBlock()).toBe(false);
+    });
+
     test("detects collision with ground", () => {
         const block = new Block([[5, numberBlockHeight - 1]], "blue", "O");
         expect(block.collisionWithGround()).toBe(true);
@@ -23,8 +28,18 @@ describe("Block collision detection", () => {
         expect(block.collisionWithBlock()).toBe(true);
     });
 
-    test("no collision when space below", () => {
-        const block = new Block([[5, 5]], "blue", "O");
-        expect(block.collisionWithBlock()).toBe(false);
+    test("detects collision with left wall", () => {
+        const block = new Block([[1, 5]], "blue", "O");
+        expect(block.allLeftCollision()).toBe(true);
+    });
+
+    test("detects collision with right wall", () => {
+        const block = new Block([[numberBlockWidth - 2, 5]], "blue", "O");
+        expect(block.allRightCollision()).toBe(true);
+    });
+
+    test("detects probable collision with ground", () => {
+        const block = new Block([[5, numberBlockHeight - 2]], "blue", "O");
+        expect(block.probaCollision()).toBe(true);
     });
 });
