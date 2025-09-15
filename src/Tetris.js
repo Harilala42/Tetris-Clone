@@ -7,8 +7,12 @@
 
 // --- Global Variables ---
 let ctx;                                // Canvas 2D context
+let width;                              // Canvas Width Size
+let height;                             // Canvas Height Size
 let canvas;                             // Canvas DOM element
 let bgImage;                            // Background image
+let sizeblock;                          // Block Size
+let viewportWidth;                      // Width Screen Size
 
 // --- Game Constants ---
 const NB_BLOCK = 5;             		// Number of tetromino types
@@ -49,11 +53,12 @@ const GRADIENT_COLORS = {
 	Handles drawing, movement, collision and rotation.
 */
 export class Block {
-    constructor(coord, color, sign) {
+    constructor(coord, color, sign, game) {
         // Deep copy coordinates to avoid mutation
         this.coord = JSON.parse(JSON.stringify(coord));
         this.color = color;
         this.sign = sign;
+        this.game = game;
     }
 
     // Draws the block on the canvas
@@ -70,10 +75,10 @@ export class Block {
 
     // Fixes the block in the scene and records its position
     staticInScene() {
-        game.storeBlock.push({ coord: this.coord, color: this.color });
+        this.game.storeBlock.push({ coord: this.coord, color: this.color });
         recordBlock(this.coord);
         this.draw();
-        game.currentBlock = null;
+        this.game.currentBlock = null;
     }
 
     // Moves the block in the specified direction ('left', 'right', 'down')
@@ -102,7 +107,9 @@ export class Block {
         // Check for wall or block collision after rotation
         let isWallsKicked = false;
         for (let [x, y] of newCoords) {
-            if (x < 0 || x > numberBlockWidth - 1 || y < 0 || y > numberBlockHeight - 1 || game.storeCoord[x][y] === 'full') {
+            if (x < 0 || x > this.game.numberBlockWidth - 1 
+                || y < 0 || y > this.game.numberBlockHeight - 1 
+                || this.game.storeCoord[x][y] === 'full') {
                 isWallsKicked = true;
                 break;
             }
@@ -116,7 +123,7 @@ export class Block {
     collisionWithGround() {
         for (let i = 0; i <= this.coord.length - 1; i++) {
             let YCoord = this.coord[i][1];
-            if (YCoord === numberBlockHeight - 1) return true;
+            if (YCoord === this.game.numberBlockHeight - 1) return true;
         }
         return false;
     }
@@ -126,7 +133,7 @@ export class Block {
         for (let i = 0; i <= this.coord.length - 1; i++) {
             let XCoord = this.coord[i][0];
             let YCoord = this.coord[i][1] + 1;
-            if (game.storeCoord[XCoord][YCoord] === 'full') return true;
+            if (this.game.storeCoord[XCoord][YCoord] === 'full') return true;
         }
         return false;
     }
@@ -136,7 +143,7 @@ export class Block {
         for (let i = 0; i <= this.coord.length - 1; i++) {
             let X = this.coord[i][0];
             let Y = this.coord[i][1];
-            if (game.storeCoord[X - 1][Y] === 'full') return true;
+            if (this.game.storeCoord[X - 1][Y] === 'full') return true;
         }
         return false;
     }
@@ -146,7 +153,7 @@ export class Block {
         for (let i = 0; i <= this.coord.length - 1; i++) {
             let X = this.coord[i][0];
             let Y = this.coord[i][1];
-            if (game.storeCoord[X + 1][Y] === 'full') return true;
+            if (this.game.storeCoord[X + 1][Y] === 'full') return true;
         }
         return false;
     }
@@ -157,7 +164,7 @@ export class Block {
             let X = this.coord[i][0];
             for (let j = 1; j <= BOX_COLLIDER; j++) {
                 let Y = this.coord[i][1] + j;
-                if (game.storeCoord[X][Y] === 'full' || Y === numberBlockHeight - 1)
+                if (this.game.storeCoord[X][Y] === 'full' || Y === this.game.numberBlockHeight - 1)
                     return true;
             }
         }
@@ -165,16 +172,23 @@ export class Block {
     }
 }
 
+/*
+    Gane class for the state management.     
+*/
 export class Game {
     constructor() {
         this.score = 0;
+        this.numberBlockWidth = 20;
+        this.numberBlockHeight = 30;
         this.currentBlock = null;
+
         this.isGridReady = false;
         this.isGamePaused = false;
         this.isSceneLoading = false;
         this.isBgMusicPlayed = false;
         this.isGameOverSoundPlayed = false;
         this.doesPauseAlreadyDisplay = false;
+        
         this.storeBlock = [];
         this.storeCoord = [];
     }
@@ -233,7 +247,7 @@ export class Game {
     // Checks if the game is over (block above MAX_HEIGHT)
     gameOver() {
         let isGameOver = false;
-        for (let i = 1; i < numberBlockWidth - 1; i++) {
+        for (let i = 1; i < game.numberBlockWidth - 1; i++) {
             if (this.storeCoord[i][MAX_HEIGHT] === 'full') {
                 isGameOver = true;
                 break;
@@ -246,7 +260,7 @@ export class Game {
     gameLoop() {
         if (!this.currentBlock) {
             const { shape, color, sign } = TETROMINOES[randomBlock()];
-            this.currentBlock = new Block(shape, color, sign);
+            this.currentBlock = new Block(shape, color, sign, this);
         }
 
         reduceStack();
@@ -284,9 +298,9 @@ export class Game {
 }
 
 // --- Game Loop Variables ---
-let lastTime = 0;                   // Last frame timestamp
-let dropCounter = 0;                // Time since last drop
-let dropInterval = TIME_FLOW;       // Current drop interval
+let lastTime = 0;                       // Last frame timestamp
+let dropCounter = 0;                    // Time since last drop
+let dropInterval = TIME_FLOW;           // Current drop interval
 
 /*
     Main animation loop. Handles block dropping and scene refresh.
@@ -309,10 +323,6 @@ function updateFrame(time = 0) {
     requestAnimationFrame(updateFrame);
 }
 
-export const numberBlockHeight = 30;
-export const numberBlockWidth = 20;
-let width, height, sizeblock, viewportWidth;
-
 /*
     Resizes the canvas to fit the container and redraws the scene.
 */
@@ -329,7 +339,7 @@ function resizeCanvas() {
 
     width = document.getElementById('canvas').width;
     height = document.getElementById('canvas').height;
-    sizeblock = maxWidth / numberBlockWidth;
+    sizeblock = maxWidth / game.numberBlockWidth;
 
     ctx.drawImage(bgImage, 0, 0, width, height);
     drawWalls();
@@ -453,13 +463,13 @@ function drawScene(ctx) {
     Draws the left and right walls and the ceiling.
 */
 function drawWalls() {
-    for (let i = 0; i <= numberBlockHeight - 1; i++) {
+    for (let i = 0; i <= game.numberBlockHeight - 1; i++) {
         drawBlock([0, i], 'red', ctx);
-        drawBlock([numberBlockWidth - 1, i], 'red', ctx);
+        drawBlock([game.numberBlockWidth - 1, i], 'red', ctx);
     }
     for (let limit = 0; limit <= 2 ; limit++) {
         if (limit > 0)
-            drawBlock([numberBlockWidth - 1, MAX_HEIGHT], 'pink', ctx);
+            drawBlock([game.numberBlockWidth - 1, MAX_HEIGHT], 'pink', ctx);
         else
             drawBlock([0, MAX_HEIGHT], 'pink', ctx);
     }
@@ -468,71 +478,74 @@ function drawWalls() {
 /*
     Initializes the grid and fills wall cells as 'full'.
 */
-export function fillGrid() {
+function fillGrid() {
     game.isGridReady = true; 
-    for (let i = 0; i <= numberBlockWidth - 1; i++) {
+    for (let i = 0; i <= game.numberBlockWidth - 1; i++) {
         game.storeCoord.push([]);
-        for (let j = 0; j <= numberBlockHeight - 1; j++)
+        for (let j = 0; j <= game.numberBlockHeight - 1; j++)
             game.storeCoord[i].push('empty');
     }
-    for (let j = 0; j <= numberBlockHeight - 1; j++)
+    for (let j = 0; j <= game.numberBlockHeight - 1; j++)
         game.storeCoord[0][j] = 'full';
-    for (let j = 0; j <= numberBlockHeight - 1; j++)
-        game.storeCoord[numberBlockWidth - 1][j] = 'full';
+    for (let j = 0; j <= game.numberBlockHeight - 1; j++)
+        game.storeCoord[game.numberBlockWidth - 1][j] = 'full';
 }
 
 // --- Line Clearing and Scoring ---
 
+let lastScore = 0;          // Last score checkpoint for speed increase
+
 /*
     Checks for and clears full lines, updates score and speed.
 */
-let lastScore = 0;      // Last score checkpoint for speed increase
-export function reduceStack() {
-    for (let y = numberBlockHeight - 1; y >= 0; y--) {
+export function reduceStack(targetGame = game) {
+    for (let y = targetGame.numberBlockHeight - 1; y >= 0; y--) {
         let isRowFull = true;
-        for (let x = 1; x < numberBlockWidth - 1; x++) {
-            if (game.storeCoord[x][y] !== 'full') {
+        for (let x = 1; x < targetGame.numberBlockWidth - 1; x++) {
+            if (targetGame.storeCoord[x][y] !== 'full') {
                 isRowFull = false;
                 break;
             }
         }
 
         if (isRowFull) {
-            game.score += BONUS_SCORE;
+            targetGame.score += BONUS_SCORE;
             playSound(bonusSound, false);
 
-            const delta = game.score - lastScore;
+            const delta = targetGame.score - lastScore;
             if (delta >= NEXT_SPEED) {
-                lastScore = game.score;
+                lastScore = targetGame.score;
                 dropInterval = Math.max(dropInterval - 25, TIME_FLOW - 100);
             }
 
-            if (game.score > Number(window.localStorage.getItem('score')))
-                window.localStorage.setItem('score', game.score.toFixed(0));
+            if (targetGame.score > Number(window.localStorage.getItem('score')))
+                window.localStorage.setItem('score', targetGame.score.toFixed(0));
 
             // Clear the row in the grid
-            for (let x = 1; x < numberBlockWidth - 1; x++)
-                game.storeCoord[x][y] = 'empty';
-            // Remove cleared cells from blocks
-            for (let i = 0; i < game.storeBlock.length; i++) {
-                game.storeBlock[i].coord = game.storeBlock[i].coord.filter(coord => coord[1] !== y);
+            for (let x = 1; x < targetGame.numberBlockWidth - 1; x++)
+                targetGame.storeCoord[x][y] = 'empty';
 
-                if (game.storeBlock[i].coord.length === 0) {
-                    game.storeBlock.splice(i, 1);
+            // Remove cleared cells from blocks
+            for (let i = 0; i < targetGame.storeBlock.length; i++) {
+                targetGame.storeBlock[i].coord = targetGame.storeBlock[i].coord.filter(coord => coord[1] !== y);
+
+                if (targetGame.storeBlock[i].coord.length === 0) {
+                    targetGame.storeBlock.splice(i, 1);
                     i--;
                 }
             }
+
             // Move above rows down
             for (let aboveY = y - 1; aboveY >= 0; aboveY--) {
-                for (let x = 1; x < numberBlockWidth - 1; x++) {
-                    if (game.storeCoord[x][aboveY] === 'full') {
-                        game.storeCoord[x][aboveY] = 'empty';
-                        game.storeCoord[x][aboveY + 1] = 'full';
+                for (let x = 1; x < targetGame.numberBlockWidth - 1; x++) {
+                    if (targetGame.storeCoord[x][aboveY] === 'full') {
+                        targetGame.storeCoord[x][aboveY] = 'empty';
+                        targetGame.storeCoord[x][aboveY + 1] = 'full';
 
-                        for (let i = 0; i < game.storeBlock.length; i++) {
-                            for (let j = 0; j < game.storeBlock[i].coord.length; j++) {
-                                if (game.storeBlock[i].coord[j][0] === x && game.storeBlock[i].coord[j][1] === aboveY)
-                                    game.storeBlock[i].coord[j][1] += 1;
+                        for (let i = 0; i < targetGame.storeBlock.length; i++) {
+                            for (let j = 0; j < targetGame.storeBlock[i].coord.length; j++) {
+                                if (targetGame.storeBlock[i].coord[j][0] === x && targetGame.storeBlock[i].coord[j][1] === aboveY)
+                                    targetGame.storeBlock[i].coord[j][1] += 1;
                             }
                         }
                     }
@@ -584,6 +597,7 @@ function orientationBlock(coord, direction) {
     }
 }
 
+// --- Create the Game ---
 const game = new Game();
 game.initScene();
 
