@@ -4,58 +4,54 @@ A modern, responsive Tetris clone built from scratch using Vanilla JavaScript an
 
 # 🚀 Tech Stack
 
-    Vanilla JavaScript (ES6+)
+- Vanilla JavaScript (ES6+)
 
-    HTML5 Canvas API
+- HTML5 Canvas API
 
-    CSS3 (Flexbox, Responsive Design)
+- CSS3 (Flexbox, Responsive Design)
 
-    Vite (Build Tool & Dev Server)
+- Vite (Build Tool & Dev Server)
 
-    Vitest (Unit Testing)
+- Vitest (Unit Testing)
 
 # ✨ Features
 
-    Classic Tetris Gameplay: Full implementation of Tetris mechanics including block movement, rotation, and clearing lines.
+- Classic Tetris Gameplay: Full implementation of Tetris mechanics including block movement, rotation, and clearing lines.
 
-    SRS (Super Rotation System): Authentic piece rotation with wall kick detection.
+- SRS (Super Rotation System): Authentic piece rotation with wall kick detection.
 
-    Responsive Design: Fully playable on both desktop and mobile devices.
+- Responsive Design: Fully playable on both desktop and mobile devices.
 
-    Touch & Keyboard Controls: Swipe gestures for mobile, keyboard arrows for desktop.
+- Touch & Keyboard Controls: Swipe gestures for mobile, keyboard arrows for desktop.
 
-    Audio Feedback: Background music and sound effects for line clears and game over.
+- Audio Feedback: Background music and sound effects for line clears and game over.
 
-    Persistent Scoring: High score is saved to localStorage.
+- Persistent Scoring: High score is saved to localStorage.
 
-    Progressive Difficulty: Game speed increases as your score gets higher.
+- Progressive Difficulty: Game speed increases as your score gets higher.
 
-    Unit Tests: Core game logic is tested for reliability.
+- Unit Tests: Core game logic is tested for reliability.
 
 # 🛠️ How to Run Locally
 
-    Clone the repository
-    bash
+Clone the repository
 
-git clone https://github.com/your-username/tetris-clone.git
-cd tetris-clone
+    git clone https://github.com/your-username/tetris-clone.git
+    cd tetris-clone
 
 Install dependencies
-bash
 
-npm install
+    npm install
 
 Start the development server
-bash
 
-npm run dev
+    npm run dev
 
 Open your browser and navigate to http://localhost:3000.
 
 Run the test suite (Optional)
-bash
 
-npm test
+    npm test
 
 # 🌐 Live Demo
 
@@ -64,10 +60,10 @@ https://tetris-clone-v2.vercel.app/
 
 # 🎯 How to Play
 
-    Desktop: Use the Arrow Keys to move and rotate. Spacebar to pause, Enter to restart.
+Desktop: Use the Arrow Keys to move and rotate. Spacebar to pause, Enter to restart.
 
-    Mobile: Swipe left/right/down to move. Tap to rotate. Use the on-screen buttons to pause/restart.
+Mobile: Swipe left/right/down to move. Tap to rotate. Use the on-screen buttons to pause/restart.
 
-    Goal: Complete horizontal lines to score points and avoid stacking blocks to the top!
+Goal: Complete horizontal lines to score points and avoid stacking blocks to the top!
 
 This project was built as a portfolio piece to showcase advanced Vanilla JS and game development skills.
