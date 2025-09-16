@@ -70,15 +70,16 @@ export class Block {
     // Moves the block down by one cell (gravity)
     gravity() {
         for (let i = 0; i <= this.coord.length - 1; i++)
-            this.coord[i][1] = gravityBlock(this.coord[i]);
+            this.coord[i][1] += 1;
     }
 
     // Fixes the block in the scene and records its position
     staticInScene() {
-        this.game.storeBlock.push({ coord: this.coord, color: this.color });
-        recordBlock(this.coord);
         this.draw();
         this.game.currentBlock = null;
+        this.game.storeBlock.push({ coord: this.coord, color: this.color });
+        for (let [x, y] of this.coord)
+            this.game.storeCoord[x][y] = 'full';
     }
 
     // Moves the block in the specified direction ('left', 'right', 'down')
@@ -178,9 +179,14 @@ export class Block {
 export class Game {
     constructor() {
         this.score = 0;
+        this.lastScore = 0;
         this.numberBlockWidth = 20;
         this.numberBlockHeight = 30;
         this.currentBlock = null;
+
+        this.lastTime = 0;
+        this.dropCounter = 0;
+        this.dropInterval = TIME_FLOW;
 
         this.isGridReady = false;
         this.isGamePaused = false;
@@ -191,19 +197,42 @@ export class Game {
         
         this.storeBlock = [];
         this.storeCoord = [];
+
+        this.updateFrame = this.updateFrame.bind(this);
     }
 
     // Init the game scene and loads assets
     async initScene() {
         canvas = document.getElementById('canvas');
-        canvas.style.margin = '10px auto';
-        canvas.style.backgroundColor = '#ddd';
-        canvas.style.display = 'block';
         ctx = canvas.getContext('2d');
+
+        // Attach touch listeners now that canvas is available
+        canvas.addEventListener('touchstart', handleTouchStart, { passive: true });
+        canvas.addEventListener('touchend', handleTouchEnd, { passive: true });
+        canvas.addEventListener('touchmove', handleTouchMove, { passive: true });
 
         bgImage = await loadImage('images/background.png');
 
-        resizeCanvas();
+        this.resizeCanvas();
+    }
+
+    // Main animation loop for the game
+    updateFrame(time = 0) {
+        const delta = time - this.lastTime;
+        this.lastTime = time;
+
+        this.dropCounter += delta;
+        if (this.dropCounter >= this.dropInterval) {
+            if (!this.isBgMusicPlayed) {
+                playSound(bgMusic, true);
+                this.isBgMusicPlayed = true;
+            }
+
+            this.refreshScene();
+            this.dropCounter = 0;
+        }
+
+        requestAnimationFrame(this.updateFrame);
     }
 
     // Refresh the game scene: draws, fills the grill and checks game state
@@ -214,7 +243,7 @@ export class Game {
             return this.doesPauseAlreadyDisplay = true;
         }
 
-        if (!this.isGridReady) fillGrid();
+        if (!this.isGridReady) this.fillGrid();
 
         ctx.clearRect(0, 0, width, height);
         ctx.drawImage(bgImage, 0, 0, width, height);
@@ -247,10 +276,12 @@ export class Game {
     // Checks if the game is over (block above MAX_HEIGHT)
     gameOver() {
         let isGameOver = false;
-        for (let i = 1; i < game.numberBlockWidth - 1; i++) {
-            if (this.storeCoord[i][MAX_HEIGHT] === 'full') {
-                isGameOver = true;
-                break;
+        if (this.isGridReady) {
+            for (let i = 1; i < this.numberBlockWidth - 1; i++) {
+                if (this.storeCoord[i][MAX_HEIGHT] === 'full') {
+                    isGameOver = true;
+                    break;
+                }
             }
         }
         return (isGameOver);
@@ -263,7 +294,7 @@ export class Game {
             this.currentBlock = new Block(shape, color, sign, this);
         }
 
-        reduceStack();
+        this.reduceStack();
         displayMessage(this.score, 5, 0.5);
         drawScene(ctx);
 
@@ -278,89 +309,126 @@ export class Game {
     // Resets all game state and restarts the game
     restartGame() {
         this.score = 0;
+        this.lastScore = 0;
         this.currentBlock = null;
+
+        this.lastTime = 0;
+        this.dropCounter = 0;
+        this.dropInterval = TIME_FLOW;
+
         this.isGridReady = false;
         this.isGamePaused = false;
         this.isSceneLoading = true;
         this.isBgMusicPlayed = false;
         this.isGameOverSoundPlayed = false;
         this.doesPauseAlreadyDisplay = false;
+
         this.storeBlock = [];
         this.storeCoord = [];
 
-        lastTime = 0;
-        lastScore = 0;
-        dropCounter = 0;
-        dropInterval = TIME_FLOW;
-
-        requestAnimationFrame(updateFrame);
+        requestAnimationFrame(this.updateFrame);
     }
-}
 
-// --- Game Loop Variables ---
-let lastTime = 0;                       // Last frame timestamp
-let dropCounter = 0;                    // Time since last drop
-let dropInterval = TIME_FLOW;           // Current drop interval
-
-/*
-    Main animation loop. Handles block dropping and scene refresh.
-*/
-function updateFrame(time = 0) {
-    const delta = time - lastTime;
-    lastTime = time;
-
-    dropCounter += delta;
-    if (dropCounter >= dropInterval) {
-        if (!game.isBgMusicPlayed) {
-            playSound(bgMusic, true);
-            game.isBgMusicPlayed = true;
+    // Init the grid and fills wall cells as 'full'
+    fillGrid() {
+        this.isGridReady = true; 
+        for (let i = 0; i <= this.numberBlockWidth - 1; i++) {
+            this.storeCoord.push([]);
+            for (let j = 0; j <= this.numberBlockHeight - 1; j++)
+                this.storeCoord[i].push('empty');
         }
-
-        game.refreshScene();
-        dropCounter = 0;
+        for (let j = 0; j <= this.numberBlockHeight - 1; j++)
+            this.storeCoord[0][j] = 'full';
+        for (let j = 0; j <= this.numberBlockHeight - 1; j++)
+            this.storeCoord[this.numberBlockWidth - 1][j] = 'full';
     }
 
-    requestAnimationFrame(updateFrame);
-}
+    // Checks for and clears full lines, updates score and speed
+    reduceStack() {
+        for (let y = this.numberBlockHeight - 1; y >= 0; y--) {
+            let isRowFull = true;
+            for (let x = 1; x < this.numberBlockWidth - 1; x++) {
+                if (this.storeCoord[x][y] !== 'full') {
+                    isRowFull = false;
+                    break;
+                }
+            }
 
-/*
-    Resizes the canvas to fit the container and redraws the scene.
-*/
-function resizeCanvas() {
-    const container = document.querySelector('.container');
-    viewportWidth = container.clientWidth;
+            if (isRowFull) {
+                this.score += BONUS_SCORE;
+                playSound(bonusSound, false);
 
-    const maxWidth = Math.min(viewportWidth, 440);
-    const aspectRatio = 440 / 660;
-    const newHeight = maxWidth / aspectRatio;
-    
-    canvas.width = maxWidth;
-    canvas.height = newHeight;
+                const delta = this.score - this.lastScore;
+                if (delta >= NEXT_SPEED) {
+                    this.lastScore = this.score;
+                    this.dropInterval = Math.max(this.dropInterval - 25, TIME_FLOW - 100);
+                }
 
-    width = document.getElementById('canvas').width;
-    height = document.getElementById('canvas').height;
-    sizeblock = maxWidth / game.numberBlockWidth;
+                if (this.score > Number(window.localStorage.getItem('score')))
+                    window.localStorage.setItem('score', this.score.toFixed(0));
 
-    ctx.drawImage(bgImage, 0, 0, width, height);
-    drawWalls();
+                // Clear the row in the grid
+                for (let x = 1; x < this.numberBlockWidth - 1; x++)
+                    this.storeCoord[x][y] = 'empty';
 
-    if (game.isSceneLoading) {
-        displayMessage(game.score, 5, 0.5);
-        game.currentBlock.draw();
-        bgMusic.pause();
-        drawScene(ctx);
+                // Remove cleared cells from blocks
+                for (let i = 0; i < this.storeBlock.length; i++) {
+                    this.storeBlock[i].coord = this.storeBlock[i].coord.filter(coord => coord[1] !== y);
 
-        game.isGamePaused = true;
-        game.doesPauseAlreadyDisplay = false;
-        game.refreshScene();
-    } else {
-        if (game.isGridReady && game.gameOver()) return game.refreshScene();
+                    if (this.storeBlock[i].coord.length === 0) {
+                        this.storeBlock.splice(i, 1);
+                        i--;
+                    }
+                }
 
-        game.score = window.localStorage.getItem('score') || 0;
-        if (!game.score) window.localStorage.setItem('score', '0');
+                // Move above rows down
+                for (let aboveY = y - 1; aboveY >= 0; aboveY--) {
+                    for (let x = 1; x < this.numberBlockWidth - 1; x++) {
+                        if (this.storeCoord[x][aboveY] === 'full') {
+                            this.storeCoord[x][aboveY] = 'empty';
+                            this.storeCoord[x][aboveY + 1] = 'full';
+
+                            for (let i = 0; i < this.storeBlock.length; i++) {
+                                for (let j = 0; j < this.storeBlock[i].coord.length; j++) {
+                                    if (this.storeBlock[i].coord[j][0] === x && this.storeBlock[i].coord[j][1] === aboveY)
+                                        this.storeBlock[i].coord[j][1] += 1;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Resizes the canvas to fit the container and redraws the scene
+    resizeCanvas() {
+        const container = document.querySelector('.container');
+        viewportWidth = container.clientWidth;
+
+        const maxWidth = Math.min(viewportWidth, 440);
+        const aspectRatio = 440 / 660;
+        const newHeight = maxWidth / aspectRatio;
         
-        displayMessage(`${viewportWidth > 768 ? 'Press Enter' : 'Tap'} to Start 🕹️!`, 2, 0.4);
-        displayMessage(game.score, 5, 0.5);
+        canvas.width = maxWidth;
+        canvas.height = newHeight;
+
+        width = canvas.width;
+        height = canvas.height;
+        sizeblock = maxWidth / this.numberBlockWidth;
+
+        ctx.drawImage(bgImage, 0, 0, width, height);
+        drawWalls();
+
+        if (this.isSceneLoading || this.gameOver())
+            this.refreshScene();
+        else {
+            this.score = window.localStorage.getItem('score') || 0;
+            if (!this.score) window.localStorage.setItem('score', '0');
+
+            displayMessage(`${viewportWidth > 768 ? 'Press Enter' : 'Tap'} to Start 🕹️!`, 2, 0.4);
+            displayMessage(this.score, 5, 0.5);
+        }
     }
 }
 
@@ -476,109 +544,10 @@ function drawWalls() {
 }
 
 /*
-    Initializes the grid and fills wall cells as 'full'.
-*/
-function fillGrid() {
-    game.isGridReady = true; 
-    for (let i = 0; i <= game.numberBlockWidth - 1; i++) {
-        game.storeCoord.push([]);
-        for (let j = 0; j <= game.numberBlockHeight - 1; j++)
-            game.storeCoord[i].push('empty');
-    }
-    for (let j = 0; j <= game.numberBlockHeight - 1; j++)
-        game.storeCoord[0][j] = 'full';
-    for (let j = 0; j <= game.numberBlockHeight - 1; j++)
-        game.storeCoord[game.numberBlockWidth - 1][j] = 'full';
-}
-
-// --- Line Clearing and Scoring ---
-
-let lastScore = 0;          // Last score checkpoint for speed increase
-
-/*
-    Checks for and clears full lines, updates score and speed.
-*/
-export function reduceStack(targetGame = game) {
-    for (let y = targetGame.numberBlockHeight - 1; y >= 0; y--) {
-        let isRowFull = true;
-        for (let x = 1; x < targetGame.numberBlockWidth - 1; x++) {
-            if (targetGame.storeCoord[x][y] !== 'full') {
-                isRowFull = false;
-                break;
-            }
-        }
-
-        if (isRowFull) {
-            targetGame.score += BONUS_SCORE;
-            playSound(bonusSound, false);
-
-            const delta = targetGame.score - lastScore;
-            if (delta >= NEXT_SPEED) {
-                lastScore = targetGame.score;
-                dropInterval = Math.max(dropInterval - 25, TIME_FLOW - 100);
-            }
-
-            if (targetGame.score > Number(window.localStorage.getItem('score')))
-                window.localStorage.setItem('score', targetGame.score.toFixed(0));
-
-            // Clear the row in the grid
-            for (let x = 1; x < targetGame.numberBlockWidth - 1; x++)
-                targetGame.storeCoord[x][y] = 'empty';
-
-            // Remove cleared cells from blocks
-            for (let i = 0; i < targetGame.storeBlock.length; i++) {
-                targetGame.storeBlock[i].coord = targetGame.storeBlock[i].coord.filter(coord => coord[1] !== y);
-
-                if (targetGame.storeBlock[i].coord.length === 0) {
-                    targetGame.storeBlock.splice(i, 1);
-                    i--;
-                }
-            }
-
-            // Move above rows down
-            for (let aboveY = y - 1; aboveY >= 0; aboveY--) {
-                for (let x = 1; x < targetGame.numberBlockWidth - 1; x++) {
-                    if (targetGame.storeCoord[x][aboveY] === 'full') {
-                        targetGame.storeCoord[x][aboveY] = 'empty';
-                        targetGame.storeCoord[x][aboveY + 1] = 'full';
-
-                        for (let i = 0; i < targetGame.storeBlock.length; i++) {
-                            for (let j = 0; j < targetGame.storeBlock[i].coord.length; j++) {
-                                if (targetGame.storeBlock[i].coord[j][0] === x && targetGame.storeBlock[i].coord[j][1] === aboveY)
-                                    targetGame.storeBlock[i].coord[j][1] += 1;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-/*
     Returns a random tetromino type (1-5).
 */
 function randomBlock() {
     return Math.floor(Math.random() * NB_BLOCK) + 1;
-}
-
-/*
-    Marks cells as occupied in the grid.
-*/
-function recordBlock(coord) {
-    for (let z = 0; z <= coord.length - 1; z++) {
-        let X = coord[z][0];
-        let Y = coord[z][1];
-        game.storeCoord[X][Y] = 'full';
-    }
-}
-
-/*
-    Makes blocks fall (gravity).
-*/
-function gravityBlock(coord) {
-    let YCoord = coord[1];
-    return (YCoord += 1);
 }
 
 /*
@@ -599,29 +568,21 @@ function orientationBlock(coord, direction) {
 
 // --- Create the Game ---
 const game = new Game();
-game.initScene();
-
-// --- Event Listeners ---
-
-// Handle window resize for responsive canvas
-window.addEventListener('resize', resizeCanvas);
-
-// Button controls
-document.getElementById('restart').addEventListener('click', () => game.restartGame());
-document.getElementById('pause').addEventListener('click', () => game.pauseGame());
+(async () => await game.initScene())();
 
 // --- Touch Controls ---
+
 let tapStartTime, tapStartX, tapStartY;
-canvas.addEventListener('touchstart', (event) => {
+function handleTouchStart(event) {
     const touch = event.touches[0];
     if (game.isGamePaused) return;
 
     tapStartTime = Date.now();
     tapStartX = touch.clientX;
     tapStartY = touch.clientY;
-}, { passive: true });
+}
 
-canvas.addEventListener('touchend', (event) => {
+function handleTouchEnd(event) {
     const touch = event.changedTouches[0];
     if (game.isGamePaused) return;
 
@@ -637,10 +598,10 @@ canvas.addEventListener('touchend', (event) => {
                 game.currentBlock.rotation();
         }
     }
-}, { passive: true });
+}
 
 let lastMoveTime = 0;
-canvas.addEventListener('touchmove', (event) => {
+function handleTouchMove(event) {
     const touch = event.changedTouches[0];
     if (game.isGamePaused || !game.isSceneLoading || !game.currentBlock) return;
 
@@ -666,7 +627,16 @@ canvas.addEventListener('touchmove', (event) => {
         }
         lastMoveTime = currentTime;
     }
-}, { passive: true });
+}
+
+// --- Event Listeners ---
+
+// Handle window resize for responsive canvas
+window.addEventListener('resize', () => game.resizeCanvas);
+
+// Button controls
+document.getElementById('pause').addEventListener('click', () => game.pauseGame());
+document.getElementById('restart').addEventListener('click', () => game.restartGame());
 
 // --- Keyboard Controls ---
 document.addEventListener('keydown', (event) => {

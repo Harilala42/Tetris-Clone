@@ -1,12 +1,10 @@
 "use strict";
 
 import { describe, beforeEach, test, expect } from 'vitest';
-import { reduceStack, Game } from "../src/Tetris.js";
+import { Game } from "../src/Tetris.js";
 
 describe('reduceStack', () => {
     let game;
-    let lastScore;
-
     beforeEach(() => {
         game = new Game();
 
@@ -18,20 +16,20 @@ describe('reduceStack', () => {
 
         for (let x = 1; x < game.numberBlockWidth - 1; x++)
             game.storeCoord[x][10] = "full";
-
-        lastScore = game.score;
     });
 
     test('clears a full line and increases score', () => {
-        reduceStack(game);
+        let lastScore = game.score;
+        game.reduceStack();
         for (let x = 1; x < game.numberBlockWidth - 1; x++)
             expect(game.storeCoord[x][10]).toBe("empty");
         expect(game.score).toBe(lastScore + 100);
     });
 
     test("should't clear an almost full line", () => {
+        let lastScore = game.score;
         game.storeCoord[5][10] = "empty";
-        reduceStack(game);
+        game.reduceStack();
         for (let x = 1; x < game.numberBlockWidth - 1; x++) {
             if (x === 5)
                 expect(game.storeCoord[x][10]).toBe("empty");
@@ -42,8 +40,9 @@ describe('reduceStack', () => {
     });
 
     test("after clearing a line, rows above fall down", () => {
+        let lastScore = game.score;
         game.storeCoord[5][9] = "full";
-        reduceStack(game);
+        game.reduceStack();
         expect(game.storeCoord[5][10]).toBe("full");
         expect(game.storeCoord[5][9]).toBe("empty");
         expect(game.score).toBe(lastScore + 100);

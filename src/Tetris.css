@@ -19,6 +19,7 @@ body {
     justify-content: center;
     flex-direction: column;
     position: fixed;
+    gap: 10px;
 }
 
 .action {
