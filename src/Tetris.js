@@ -75,7 +75,6 @@ export class Block {
 
     // Fixes the block in the scene and records its position
     staticInScene() {
-        this.draw();
         this.game.currentBlock = null;
         this.game.storeBlock.push({ coord: this.coord, color: this.color });
         for (let [x, y] of this.coord)
@@ -173,9 +172,118 @@ export class Block {
     }
 }
 
-/*
-    Gane class for the state management.     
-*/
+/* EventManager Class handles touch screen and keyboard events. */
+export class EventManager {
+    constructor(scene) {
+        this.scene = scene;
+
+        this.tapStartX = 0;
+        this.tapStartY = 0;
+        this.lastMoveTime = 0;
+        this.tapStartTime = 0;
+    }
+
+    handleTouchStart = (event) => {
+        const touch = event.touches?.[0];
+        if (!touch || this.scene.isGamePaused) return;
+
+        this.tapStartTime = Date.now();
+        this.tapStartX = touch.clientX;
+        this.tapStartY = touch.clientY;
+    }
+
+    handleTouchEnd = (event) => {
+        const touch = event.changedTouches?.[0];
+        if (!touch || this.scene.isGamePaused) return;
+
+        const duration = Date.now() - this.tapStartTime;
+        const distance = Math.hypot(touch.clientX - this.tapStartX, touch.clientY - this.tapStartY);
+
+        // Tap: Rotate Block or Restart Scene
+        if (duration < 300 && distance < 10) {
+            if (!this.scene.isSceneLoading) {
+                this.scene.restartGame();
+            } else if (this.scene.currentBlock) {
+                if (!this.scene.currentBlock.collisionWithGround() &&
+                    !this.scene.currentBlock.collisionWithBlock())
+                this.scene.currentBlock.rotation();
+            }
+        }
+    }
+
+    handleTouchMove = (event) => {
+        const touch = event.changedTouches?.[0];
+        if (!touch || this.scene.isGamePaused || !this.scene.isSceneLoading || !this.scene.currentBlock) return;
+
+        const deltaX = touch.clientX - this.tapStartX;
+        const deltaY = touch.clientY - this.tapStartY;
+
+        const currentTime = Date.now();
+        const absDeltaX = Math.abs(deltaX);
+        const absDeltaY = Math.abs(deltaY);
+
+        // Swipe: Move Block in a direction
+        if (currentTime - this.lastMoveTime > MOVE_COOLDOWN && Math.max(absDeltaX, absDeltaY) > 10) {
+            if (this.scene.currentBlock.collisionWithGround() || this.scene.currentBlock.collisionWithBlock()) return;
+
+            if (absDeltaX > absDeltaY) {
+                if (deltaX > 0 && !this.scene.currentBlock.allRightCollision())
+                this.scene.currentBlock.direction('right');
+                else if (deltaX < 0 && !this.scene.currentBlock.allLeftCollision())
+                this.scene.currentBlock.direction('left');
+            } else {
+                if (deltaY > 0 && !this.scene.currentBlock.probaCollision())
+                this.scene.currentBlock.direction('down');
+            }
+
+            this.tapStartX = touch.clientX;
+            this.tapStartY = touch.clientY;
+            this.lastMoveTime = currentTime;
+        }
+    }
+
+    // -- Keyboard Events --
+    handleKeyDown = (event) => {
+        let key = event.key,
+            newdirection = '';
+        const scene = this.scene;
+
+        if (key === 'Enter') 
+            return scene.restartGame();
+        else if (key === ' ') 
+            return scene.pauseGame();
+
+        if (scene.isGamePaused || !scene.isSceneLoading || !scene.currentBlock) return;
+
+        switch (key) {
+            case 'ArrowUp':
+                if (!scene.currentBlock.collisionWithGround() && !scene.currentBlock.collisionWithBlock())
+                    scene.currentBlock.rotation();
+            return;
+            case 'ArrowDown':
+                newdirection = 'down';
+            break;
+            case 'ArrowLeft':
+                newdirection = 'left';
+            break;
+            case 'ArrowRight':
+                newdirection = 'right';
+            break;
+            default:
+            return;
+        }
+
+        if (!scene.currentBlock.collisionWithGround() && !scene.currentBlock.collisionWithBlock()) {
+            if ((!scene.currentBlock.probaCollision() && newdirection === 'down')
+            || (!scene.currentBlock.allLeftCollision() && newdirection === 'left')
+            || (!scene.currentBlock.allRightCollision() && newdirection === 'right')
+            || (!scene.currentBlock.allLeftCollision() && !scene.currentBlock.allRightCollision()))
+            scene.currentBlock.direction(newdirection);
+        }
+    }
+}
+
+/* Gane class for the state management. */
 export class Game {
     constructor() {
         this.score = 0;
@@ -198,6 +306,7 @@ export class Game {
         this.storeBlock = [];
         this.storeCoord = [];
 
+        this.eventManager = new EventManager(this);
         this.updateFrame = this.updateFrame.bind(this);
     }
 
@@ -207,9 +316,19 @@ export class Game {
         ctx = canvas.getContext('2d');
 
         // Attach touch listeners now that canvas is available
-        canvas.addEventListener('touchstart', handleTouchStart, { passive: true });
-        canvas.addEventListener('touchend', handleTouchEnd, { passive: true });
-        canvas.addEventListener('touchmove', handleTouchMove, { passive: true });
+        canvas.addEventListener('touchstart', this.eventManager.handleTouchStart, { passive: true });
+        canvas.addEventListener('touchend', this.eventManager.handleTouchEnd, { passive: true });
+        canvas.addEventListener('touchmove', this.eventManager.handleTouchMove, { passive: true });
+
+        // Handle window resize for responsive canvas
+        window.addEventListener('resize', () => this.resizeCanvas);
+
+        // Button controls
+        document.getElementById('pause').addEventListener('click', () => this.pauseGame());
+        document.getElementById('restart').addEventListener('click', () => this.restartGame());
+
+        // Keyboard controls
+        document.addEventListener('keydown', this.eventManager.handleKeyDown);
 
         bgImage = await loadImage('images/background.png');
 
@@ -247,15 +366,15 @@ export class Game {
 
         ctx.clearRect(0, 0, width, height);
         ctx.drawImage(bgImage, 0, 0, width, height);
-        drawWalls();
+        drawWalls(this);
 
         if (!this.gameOver()) this.gameLoop();
         else {
-            drawScene(ctx);
+            drawScene(ctx, this);
             displayMessage(this.score, 5, 0.5);
             this.isSceneLoading = false;
             if (!this.isGameOverSoundPlayed) {
-                bgMusic.pause();
+                if (bgMusic) bgMusic.pause();
                 playSound(gameOverSound, false);
                 this.isGameOverSoundPlayed = true;
             }
@@ -296,14 +415,13 @@ export class Game {
 
         this.reduceStack();
         displayMessage(this.score, 5, 0.5);
-        drawScene(ctx);
+        drawScene(ctx, this);
 
+        this.currentBlock.draw();
         if (this.currentBlock.collisionWithGround() || this.currentBlock.collisionWithBlock())
             this.currentBlock.staticInScene();
-        else {
+        else
             this.currentBlock.gravity();
-            this.currentBlock.draw();
-        }
     }
 
     // Resets all game state and restarts the game
@@ -418,7 +536,7 @@ export class Game {
         sizeblock = maxWidth / this.numberBlockWidth;
 
         ctx.drawImage(bgImage, 0, 0, width, height);
-        drawWalls();
+        drawWalls(this);
 
         if (this.isSceneLoading || this.gameOver())
             this.refreshScene();
@@ -432,9 +550,7 @@ export class Game {
     }
 }
 
-/*
-    Loads an image and returns a Promise.
-*/
+// Loads an image and returns a Promise
 function loadImage(src) {
     return new Promise((resolve, reject) => {
         const img = new Image();
@@ -444,9 +560,7 @@ function loadImage(src) {
     });
 }
 
-/*
-    Plays a sound, optionally looping.
-*/
+// Plays a sound, optionally looping
 function playSound(sound, loop) {
     if (sound) {
         sound.volume = 0.6;
@@ -456,9 +570,7 @@ function playSound(sound, loop) {
     }
 }
 
-/*
-    Displays a message on the canvas at a given position and size.
-*/
+// Displays a message on the canvas at a given position and size
 function displayMessage(msg, size, position) {
     const font = `${size}rem 'Chewy'`;
     document.fonts.load(font).then(() => {
@@ -477,9 +589,7 @@ function displayMessage(msg, size, position) {
     });
 }
 
-/*
-    Draws a single block cell with gradient and shadow.
-*/
+// Draws a single block cell with gradient and shadow
 function drawBlock(coord, color, ctx) {
     let x = coord[0] * sizeblock;
     let y = coord[1] * sizeblock;
@@ -514,45 +624,37 @@ function drawBlock(coord, color, ctx) {
     ctx.stroke();
 }
 
-/*
-    Draws all placed blocks in the scene.
-*/
-function drawScene(ctx) {
-    for (let i = 0; i < game.storeBlock.length; i++) {
-        for (let j = 0; j <= game.storeBlock[i].coord.length - 1; j++) {
-            let x = game.storeBlock[i].coord[j][0];
-            let y = game.storeBlock[i].coord[j][1];
-            drawBlock([x, y], game.storeBlock[i].color, ctx);
+// Draws all placed blocks in the scene
+function drawScene(ctx, scene) {
+    for (let i = 0; i < scene.storeBlock.length; i++) {
+        for (let j = 0; j <= scene.storeBlock[i].coord.length - 1; j++) {
+            let x = scene.storeBlock[i].coord[j][0];
+            let y = scene.storeBlock[i].coord[j][1];
+            drawBlock([x, y], scene.storeBlock[i].color, ctx);
         }
     }
 }
 
-/*
-    Draws the left and right walls and the ceiling.
-*/
-function drawWalls() {
-    for (let i = 0; i <= game.numberBlockHeight - 1; i++) {
+// Draws the left and right walls and the ceiling
+function drawWalls(scene) {
+    for (let i = 0; i <= scene.numberBlockHeight - 1; i++) {
         drawBlock([0, i], 'red', ctx);
-        drawBlock([game.numberBlockWidth - 1, i], 'red', ctx);
+        drawBlock([scene.numberBlockWidth - 1, i], 'red', ctx);
     }
     for (let limit = 0; limit <= 2 ; limit++) {
         if (limit > 0)
-            drawBlock([game.numberBlockWidth - 1, MAX_HEIGHT], 'pink', ctx);
+            drawBlock([scene.numberBlockWidth - 1, MAX_HEIGHT], 'pink', ctx);
         else
             drawBlock([0, MAX_HEIGHT], 'pink', ctx);
     }
 }
 
-/*
-    Returns a random tetromino type (1-5).
-*/
+// Returns a random tetromino type (1-5)
 function randomBlock() {
     return Math.floor(Math.random() * NB_BLOCK) + 1;
 }
 
-/*
-    Returns the new coordinate after moving in a direction.
-*/
+// Returns the new coordinate after moving in a direction
 function orientationBlock(coord, direction) {
     let XCoord = coord[0];
     let YCoord = coord[1];
@@ -570,110 +672,3 @@ function orientationBlock(coord, direction) {
 const game = new Game();
 (async () => await game.initScene())();
 
-// --- Touch Controls ---
-
-let tapStartTime, tapStartX, tapStartY;
-function handleTouchStart(event) {
-    const touch = event.touches[0];
-    if (game.isGamePaused) return;
-
-    tapStartTime = Date.now();
-    tapStartX = touch.clientX;
-    tapStartY = touch.clientY;
-}
-
-function handleTouchEnd(event) {
-    const touch = event.changedTouches[0];
-    if (game.isGamePaused) return;
-
-    const duration = Date.now() - tapStartTime;
-    const distance = Math.sqrt(Math.pow(touch.clientX - tapStartX, 2) + Math.pow(touch.clientY - tapStartY, 2));
-    
-    // Tap: rotate or restart
-    if (duration < 300 && distance < 10) {
-        if (!game.isSceneLoading) 
-            game.restartGame();
-        else if (game.isSceneLoading && game.currentBlock) {
-            if (!game.currentBlock.collisionWithGround() && !game.currentBlock.collisionWithBlock())
-                game.currentBlock.rotation();
-        }
-    }
-}
-
-let lastMoveTime = 0;
-function handleTouchMove(event) {
-    const touch = event.changedTouches[0];
-    if (game.isGamePaused || !game.isSceneLoading || !game.currentBlock) return;
-
-    const deltaX = touch.clientX - tapStartX;
-    const deltaY = touch.clientY - tapStartY;
-    
-    const currentTime = Date.now();
-    const absDeltaX = Math.abs(deltaX);
-    const absDeltaY = Math.abs(deltaY);
-    
-    // Swipe: move block
-    if (currentTime - lastMoveTime > MOVE_COOLDOWN && Math.max(absDeltaX, absDeltaY) > 10) {
-        if (game.currentBlock.collisionWithGround() || game.currentBlock.collisionWithBlock()) return;
-
-        if (absDeltaX > absDeltaY) {
-            if (deltaX > 0 && !game.currentBlock.allRightCollision()) 
-                game.currentBlock.direction('right');
-            else if (deltaX < 0 && !game.currentBlock.allLeftCollision())
-                game.currentBlock.direction('left');
-        } else {
-            if (deltaY > 0 && !game.currentBlock.probaCollision())
-                game.currentBlock.direction('down');
-        }
-        lastMoveTime = currentTime;
-    }
-}
-
-// --- Event Listeners ---
-
-// Handle window resize for responsive canvas
-window.addEventListener('resize', () => game.resizeCanvas);
-
-// Button controls
-document.getElementById('pause').addEventListener('click', () => game.pauseGame());
-document.getElementById('restart').addEventListener('click', () => game.restartGame());
-
-// --- Keyboard Controls ---
-document.addEventListener('keydown', (event) => {
-    let key = event.key,
-        newdirection = '';
-
-    if (key === 'Enter') 
-        return game.restartGame();
-    else if (key === ' ')
-        return game.pauseGame();
-
-    if (game.isGamePaused || !game.isSceneLoading || !game.currentBlock) return;
-
-    switch(key) {
-        case 'ArrowUp':
-            if (!game.currentBlock.collisionWithGround() && !game.currentBlock.collisionWithBlock())
-                game.currentBlock.rotation();
-        return;
-        case 'ArrowDown':
-            newdirection = 'down';
-        break;
-        case 'ArrowLeft':
-            newdirection = 'left';
-        break;
-        case 'ArrowRight':
-            newdirection = 'right';
-        break;
-        default:
-        return ;
-    }
-
-    // Move block if no collision
-    if (!game.currentBlock.collisionWithGround() && !game.currentBlock.collisionWithBlock()) {
-        if ((!game.currentBlock.probaCollision() && newdirection === 'down')
-            || (!game.currentBlock.allLeftCollision() && newdirection === 'left')
-            || (!game.currentBlock.allRightCollision() && newdirection === 'right')
-            || (!game.currentBlock.allLeftCollision() && !game.currentBlock.allRightCollision()))
-            game.currentBlock.direction(newdirection);
-    }
-});
