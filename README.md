@@ -12,7 +12,7 @@ A modern, responsive Tetris clone built from scratch using Vanilla JavaScript an
 
 - Vite (Build Tool & Dev Server)
 
-- Vitest (Unit Testing)
+- Vitest (Unit Testing with Jest)
 
 # ✨ Features
 
@@ -36,7 +36,7 @@ A modern, responsive Tetris clone built from scratch using Vanilla JavaScript an
 
 Clone the repository
 
-    git clone https://github.com/your-username/tetris-clone.git
+    git clone https://github.com/Harilala42/Tetris-Clone.git
     cd tetris-clone
 
 Install dependencies
