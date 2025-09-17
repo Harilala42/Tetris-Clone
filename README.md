@@ -20,6 +20,8 @@ A modern, responsive Tetris clone built from scratch using Vanilla JavaScript an
 
 - SRS (Super Rotation System): Authentic piece rotation with wall kick detection.
 
+- Rendering with 'requestAnimationFrame': Ensures smooth, efficient animations by syncing with the browser's refresh rate.
+
 - Responsive Design: Fully playable on both desktop and mobile devices.
 
 - Touch & Keyboard Controls: Swipe gestures for mobile, keyboard arrows for desktop.
