@@ -1,6 +1,8 @@
 # 🎮 Tetris Clone
 
-A modern, responsive Tetris clone built from scratch using Vanilla JavaScript and the Canvas API. This project demonstrates core game development principles, clean architecture, and a focus on user experience across both desktop and mobile devices.
+A modern, responsive Tetris clone built from scratch using Vanilla JavaScript and the Canvas API.
+
+![screenshot game](/public/images/preview.jpg)
 
 # 🚀 Tech Stack
 
@@ -67,5 +69,3 @@ Desktop: Use the Arrow Keys to move and rotate. Spacebar to pause, Enter to rest
 Mobile: Swipe left/right/down to move. Tap to rotate. Use the on-screen buttons to pause/restart.
 
 Goal: Complete horizontal lines to score points and avoid stacking blocks to the top!
-
-This project was built as a portfolio piece to showcase advanced Vanilla JS and game development skills.
