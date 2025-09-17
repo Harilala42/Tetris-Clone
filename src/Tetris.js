@@ -283,7 +283,7 @@ export class EventManager {
     }
 }
 
-/* Gane class for the state management. */
+/* Game class for the state management. */
 export class Game {
     constructor() {
         this.score = 0;
@@ -300,39 +300,56 @@ export class Game {
         this.isGamePaused = false;
         this.isSceneLoading = false;
         this.isBgMusicPlayed = false;
-        this.isGameOverSoundPlayed = false;
-        this.doesPauseAlreadyDisplay = false;
         
         this.storeBlock = [];
         this.storeCoord = [];
 
         this.eventManager = new EventManager(this);
         this.updateFrame = this.updateFrame.bind(this);
+        this.animationId = null;
     }
 
     // Init the game scene and loads assets
-    async initScene() {
+    async initGame() {
         canvas = document.getElementById('canvas');
         ctx = canvas.getContext('2d');
 
-        // Attach touch listeners now that canvas is available
+        // Touch listeners
         canvas.addEventListener('touchstart', this.eventManager.handleTouchStart, { passive: true });
         canvas.addEventListener('touchend', this.eventManager.handleTouchEnd, { passive: true });
         canvas.addEventListener('touchmove', this.eventManager.handleTouchMove, { passive: true });
 
-        // Handle window resize for responsive canvas
-        window.addEventListener('resize', () => this.resizeCanvas);
+        // Keyboard controls
+        document.addEventListener('keydown', this.eventManager.handleKeyDown);
 
         // Button controls
         document.getElementById('pause').addEventListener('click', () => this.pauseGame());
         document.getElementById('restart').addEventListener('click', () => this.restartGame());
 
-        // Keyboard controls
-        document.addEventListener('keydown', this.eventManager.handleKeyDown);
-
         bgImage = await loadImage('images/background.png');
 
         this.resizeCanvas();
+
+        ctx.drawImage(bgImage, 0, 0, width, height);
+        drawWalls(this);
+
+        this.score = window.localStorage.getItem('score') || 0;
+        if (!this.score) window.localStorage.setItem('score', '0');
+
+        displayMessage(`${viewportWidth > 768 ? 'Press Enter' : 'Tap'} to Start 🕹️!`, 2, 0.4);
+        displayMessage(this.score, 5, 0.5);
+    }
+
+    startLoop() {
+        if (this.animationId) return;
+        this.animationId = requestAnimationFrame(this.updateFrame);
+    }
+
+    stopLoop() {
+        if (this.animationId) {
+            cancelAnimationFrame(this.animationId);
+            this.animationId = null;
+        }
     }
 
     // Main animation loop for the game
@@ -347,67 +364,24 @@ export class Game {
                 this.isBgMusicPlayed = true;
             }
 
-            this.refreshScene();
+            this.refreshGame();
             this.dropCounter = 0;
         }
 
-        requestAnimationFrame(this.updateFrame);
+        if (this.isSceneLoading && !this.isGamePaused && !this.gameOver())
+            this.animationId = requestAnimationFrame(this.updateFrame);
+        else
+            this.animationId = null;
     }
 
-    // Refresh the game scene: draws, fills the grill and checks game state
-    refreshScene() {
-        if (this.isGamePaused) {
-            if (this.doesPauseAlreadyDisplay) return;
-            displayMessage('⏸️ Pause ⏸️', 3, 0.25);
-            return this.doesPauseAlreadyDisplay = true;
-        }
-
+    // Handles the logic game in the scene
+    refreshGame() {
         if (!this.isGridReady) this.fillGrid();
 
         ctx.clearRect(0, 0, width, height);
         ctx.drawImage(bgImage, 0, 0, width, height);
         drawWalls(this);
 
-        if (!this.gameOver()) this.gameLoop();
-        else {
-            drawScene(ctx, this);
-            displayMessage(this.score, 5, 0.5);
-            this.isSceneLoading = false;
-            if (!this.isGameOverSoundPlayed) {
-                if (bgMusic) bgMusic.pause();
-                playSound(gameOverSound, false);
-                this.isGameOverSoundPlayed = true;
-            }
-            displayMessage('💀 Game Over 💀', 3, 0.2);
-            displayMessage(`${viewportWidth > 768 ? 'Press Enter' : 'Tap'} to Restart 🔁!`, 2, 0.3);
-        }
-    }
-
-    // Toggles the game pause state and music
-    pauseGame() {
-        if (!this.isSceneLoading) return;
-
-        this.isGamePaused = !this.isGamePaused;
-        this.doesPauseAlreadyDisplay = false;
-        return this.isGamePaused ? bgMusic.pause() : bgMusic.play();
-    }
-
-    // Checks if the game is over (block above MAX_HEIGHT)
-    gameOver() {
-        let isGameOver = false;
-        if (this.isGridReady) {
-            for (let i = 1; i < this.numberBlockWidth - 1; i++) {
-                if (this.storeCoord[i][MAX_HEIGHT] === 'full') {
-                    isGameOver = true;
-                    break;
-                }
-            }
-        }
-        return (isGameOver);
-    }
-
-    // Main game logic: handles block creation, movement and collision
-    gameLoop() {
         if (!this.currentBlock) {
             const { shape, color, sign } = TETROMINOES[randomBlock()];
             this.currentBlock = new Block(shape, color, sign, this);
@@ -424,6 +398,47 @@ export class Game {
             this.currentBlock.gravity();
     }
 
+    // Toggles the game pause state and music
+    pauseGame() {
+        if (!this.isSceneLoading) return;
+
+        this.isGamePaused = !this.isGamePaused;
+        
+        if (this.isGamePaused) {
+            this.stopLoop();
+            if (bgMusic) bgMusic.pause();
+            displayMessage('⏸️ Pause ⏸️', 3, 0.25);
+        } else {
+            if (bgMusic) bgMusic.play();
+            this.startLoop();
+        }
+    }
+
+    // Checks if the game is over (block above MAX_HEIGHT)
+    gameOver() {
+        let isGameOver = false;
+        if (this.isGridReady) {
+            for (let i = 1; i < this.numberBlockWidth - 1; i++) {
+                if (this.storeCoord[i][MAX_HEIGHT] === 'full') {
+                    isGameOver = true;
+                    break;
+                }
+            }
+        }
+
+        if (isGameOver) {
+            this.stopLoop();
+
+            if (bgMusic) bgMusic.pause();
+            playSound(gameOverSound, false);
+            this.isSceneLoading = false;
+
+            displayMessage('💀 Game Over 💀', 3, 0.2);
+            displayMessage(`${viewportWidth > 768 ? 'Press Enter' : 'Tap'} to Restart 🔁!`, 2, 0.3);
+        }
+        return (isGameOver);
+    }
+
     // Resets all game state and restarts the game
     restartGame() {
         this.score = 0;
@@ -438,13 +453,11 @@ export class Game {
         this.isGamePaused = false;
         this.isSceneLoading = true;
         this.isBgMusicPlayed = false;
-        this.isGameOverSoundPlayed = false;
-        this.doesPauseAlreadyDisplay = false;
 
         this.storeBlock = [];
         this.storeCoord = [];
 
-        requestAnimationFrame(this.updateFrame);
+        this.startLoop();
     }
 
     // Init the grid and fills wall cells as 'full'
@@ -519,7 +532,7 @@ export class Game {
         }
     }
 
-    // Resizes the canvas to fit the container and redraws the scene
+    // Resizes the canvas to fit the container
     resizeCanvas() {
         const container = document.querySelector('.container');
         viewportWidth = container.clientWidth;
@@ -534,19 +547,6 @@ export class Game {
         width = canvas.width;
         height = canvas.height;
         sizeblock = maxWidth / this.numberBlockWidth;
-
-        ctx.drawImage(bgImage, 0, 0, width, height);
-        drawWalls(this);
-
-        if (this.isSceneLoading || this.gameOver())
-            this.refreshScene();
-        else {
-            this.score = window.localStorage.getItem('score') || 0;
-            if (!this.score) window.localStorage.setItem('score', '0');
-
-            displayMessage(`${viewportWidth > 768 ? 'Press Enter' : 'Tap'} to Start 🕹️!`, 2, 0.4);
-            displayMessage(this.score, 5, 0.5);
-        }
     }
 }
 
@@ -670,5 +670,5 @@ function orientationBlock(coord, direction) {
 
 // --- Create the Game ---
 const game = new Game();
-(async () => await game.initScene())();
+(async () => await game.initGame())();
 
