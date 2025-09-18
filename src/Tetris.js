@@ -77,14 +77,13 @@ export class Block {
 
     // Draws the block on the canvas
     draw() {
-        for (let i = 0; i <= this.coord.length - 1; i++)
-            drawBlock(this.coord[i], this.color, ctx);
+        for (let coord of this.coord) 
+            drawBlock(coord, this.color, ctx);
     }
 
     // Moves the block down by one cell (gravity)
     gravity() {
-        for (let i = 0; i <= this.coord.length - 1; i++)
-            this.coord[i][1] += 1;
+        this.coord = this.coord.map(([x, y]) => [x, y + 1]);
     }
 
     // Fixes the block in the scene and records its position
@@ -97,12 +96,16 @@ export class Block {
 
     // Moves the block in the specified direction ('left', 'right', 'down')
     direction(direction) {
-        for (let i = 0; i <= this.coord.length - 1; i++) {
-            if (direction === 'left' || direction === 'right')
-                this.coord[i][0] = orientationBlock(this.coord[i], direction);
-            else
-                this.coord[i][1] = orientationBlock(this.coord[i], direction);
-        }
+        this.coord = this.coord.map(([x, y]) => {
+            switch(direction) {
+                case 'left':
+                    return [x - 1, y];
+                case 'right':
+                    return [x + 1, y];
+                default:
+                    return [x, y + 1];
+            }
+        });
     }
 
     // Rotates the block with SRS (Super Rotation System)
@@ -135,52 +138,47 @@ export class Block {
 
     // Checks if any part of the block collides with the ground
     collisionWithGround() {
-        for (let i = 0; i <= this.coord.length - 1; i++) {
-            let YCoord = this.coord[i][1];
-            if (YCoord === this.game.numberBlockHeight - 1) return true;
+        for (let coord of this.coord) {
+            if (coord[1] === this.game.numberBlockHeight - 1)
+                return true;
         }
         return false;
     }
 
     // Checks if any part of the block collides with another block
     collisionWithBlock() {
-        for (let i = 0; i <= this.coord.length - 1; i++) {
-            let XCoord = this.coord[i][0];
-            let YCoord = this.coord[i][1] + 1;
-            if (this.game.storeCoord[XCoord][YCoord] === 'full') return true;
+        for (let [x, y] of this.coord) {
+            if (this.game.storeCoord[x][y + 1] === 'full') 
+                return true;
         }
         return false;
     }
 
     // Checks collision with left wall or block
     allLeftCollision() {
-        for (let i = 0; i <= this.coord.length - 1; i++) {
-            let X = this.coord[i][0];
-            let Y = this.coord[i][1];
-            if (this.game.storeCoord[X - 1][Y] === 'full') return true;
+        for (let [x, y] of this.coord) {
+            if (this.game.storeCoord[x - 1][y] === 'full') 
+                return true;
         }
         return false;
     }
 
     // Checks collision with right wall or block
     allRightCollision() {
-        for (let i = 0; i <= this.coord.length - 1; i++) {
-            let X = this.coord[i][0];
-            let Y = this.coord[i][1];
-            if (this.game.storeCoord[X + 1][Y] === 'full') return true;
+        for (let [x, y] of this.coord) {
+            if (this.game.storeCoord[x + 1][y] === 'full') 
+                return true;
         }
         return false;
     }
 
     // Checks for probable collision below the block
     probaCollision() {
-        for (let i = 0; i <= this.coord.length - 1; i++) {
-            let X = this.coord[i][0];
-            for (let j = 1; j <= BOX_COLLIDER; j++) {
-                let Y = this.coord[i][1] + j;
-                if (this.game.storeCoord[X][Y] === 'full' || Y === this.game.numberBlockHeight - 1)
+        for (let [x, y] of this.coord) {
+            for (let i = 1; i <= BOX_COLLIDER; i++)
+                if (this.game.storeCoord[x][y] === 'full' 
+                    || y + i === this.game.numberBlockHeight - 1)
                     return true;
-            }
         }
         return false;
     }
@@ -397,7 +395,8 @@ export class Game {
         drawWalls(this);
 
         if (!this.currentBlock) {
-            const { shape, color, sign } = TETROMINOES[randomBlock()];
+            const randomBlock =  Math.floor(Math.random() * NB_BLOCK) + 1; 
+            const { shape, color, sign } = TETROMINOES[randomBlock];
             this.currentBlock = new Block(shape, color, sign, this);
         }
 
@@ -639,11 +638,9 @@ function drawBlock(coord, color, ctx) {
 
 // Draws all placed blocks in the scene
 function drawScene(ctx, scene) {
-    for (let i = 0; i < scene.storeBlock.length; i++) {
-        for (let j = 0; j <= scene.storeBlock[i].coord.length - 1; j++) {
-            let x = scene.storeBlock[i].coord[j][0];
-            let y = scene.storeBlock[i].coord[j][1];
-            drawBlock([x, y], scene.storeBlock[i].color, ctx);
+    for (let block of scene.storeBlock) {
+        for (let coord of block.coord) {
+            drawBlock(coord, block.color, ctx);
         }
     }
 }
@@ -661,23 +658,3 @@ function drawWalls(scene) {
             drawBlock([0, MAX_HEIGHT], 'pink', ctx);
     }
 }
-
-// Returns a random tetromino type (1-5)
-function randomBlock() {
-    return Math.floor(Math.random() * NB_BLOCK) + 1;
-}
-
-// Returns the new coordinate after moving in a direction
-function orientationBlock(coord, direction) {
-    let XCoord = coord[0];
-    let YCoord = coord[1];
-    switch(direction) {
-        case 'left':
-            return (XCoord -= 1);
-        case 'right':
-            return (XCoord += 1);
-        default:
-            return (YCoord += 1);
-    }
-}
-
