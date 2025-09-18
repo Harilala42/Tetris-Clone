@@ -58,10 +58,20 @@ global.document = {
         return {};
     },
     fonts: {
-        load: () => Promise.resolve()
+        add: () => {}
     },
     addEventListener: () => {},
     querySelector: () => ({ clientWidth: 1980 })
+};
+
+global.FontFace = class {
+    constructor(family, src) {
+        this.family = family;
+        this.source = src;
+    }
+    load() {
+        return Promise.resolve(this);
+    }
 };
 
 global.window = {

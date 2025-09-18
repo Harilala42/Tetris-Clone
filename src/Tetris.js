@@ -28,6 +28,20 @@ const bgMusic = document.getElementById('background-music');
 const bonusSound = document.getElementById('line-clear-sound');
 const gameOverSound = document.getElementById('game-over-sound');
 
+// --- Font Elements ---
+const font = new FontFace('Chewy', 'url(/fonts/Chewy-Regular.ttf)');
+font.load()
+    .then(async () => {
+        document.fonts.add(font);
+
+        // --- Create the Game ---
+        const game = new Game();
+        await game.initGame();
+    })
+    .catch((err) => {
+        console.error(`Failed to load font: ${err}`);
+    });
+
 // --- Tetromino Definitions ---
 const TETROMINOES = {
 	1: { color: 'orange', shape: [[8,4],[8,3],[9,3],[10,3],[11,3]], sign: 'L' }, 
@@ -407,6 +421,7 @@ export class Game {
         if (this.isGamePaused) {
             this.stopLoop();
             if (bgMusic) bgMusic.pause();
+            displayMessage(this.score, 5, 0.5);
             displayMessage('⏸️ Pause ⏸️', 3, 0.25);
         } else {
             if (bgMusic) bgMusic.play();
@@ -433,6 +448,7 @@ export class Game {
             playSound(gameOverSound, false);
             this.isSceneLoading = false;
 
+            displayMessage(this.score, 5, 0.5);
             displayMessage('💀 Game Over 💀', 3, 0.2);
             displayMessage(`${viewportWidth > 768 ? 'Press Enter' : 'Tap'} to Restart 🔁!`, 2, 0.3);
         }
@@ -572,21 +588,18 @@ function playSound(sound, loop) {
 
 // Displays a message on the canvas at a given position and size
 function displayMessage(msg, size, position) {
-    const font = `${size}rem 'Chewy'`;
-    document.fonts.load(font).then(() => {
-        ctx.lineWidth = 5;
-        ctx.fillStyle = 'black';
-        ctx.strokeStyle = 'white';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        
-        const positionX = width / 2;
-        const positionY = height * position;
-        
-        ctx.font = font;
-        ctx.strokeText(msg, positionX, positionY);
-        ctx.fillText(msg, positionX, positionY);
-    });
+    ctx.lineWidth = 5;
+    ctx.fillStyle = 'black';
+    ctx.strokeStyle = 'white';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    
+    const positionX = width / 2;
+    const positionY = height * position;
+    
+    ctx.font = `${size}rem 'Chewy'`;
+    ctx.strokeText(msg, positionX, positionY);
+    ctx.fillText(msg, positionX, positionY);
 }
 
 // Draws a single block cell with gradient and shadow
@@ -667,8 +680,4 @@ function orientationBlock(coord, direction) {
             return (YCoord += 1);
     }
 }
-
-// --- Create the Game ---
-const game = new Game();
-(async () => await game.initGame())();
 
