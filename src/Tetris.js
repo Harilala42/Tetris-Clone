@@ -15,7 +15,6 @@ let sizeblock;                          // Block Size
 let viewportWidth;                      // Width Screen Size
 
 // --- Game Constants ---
-const NB_BLOCK = 5;             		// Number of tetromino types
 const MAX_HEIGHT = 4;           		// Y threshold for game over
 const TIME_FLOW = 300;          		// Drop interval (ms)
 const NEXT_SPEED = 500;         		// Score threshold for speed up
@@ -44,11 +43,11 @@ font.load()
 
 // --- Tetromino Definitions ---
 const TETROMINOES = {
-	1: { color: 'orange', shape: [[8,4],[8,3],[9,3],[10,3],[11,3]], sign: 'L' }, 
-	2: { color: 'yellow', shape: [[9,2],[8,3],[9,3],[10,3]], sign: 'T' }, 
-	3: { color: 'blue', shape: [[9,2],[10,2],[9,3],[10,3]], sign: 'O' }, 
-	4: { color: 'green', shape: [[8,2],[9,2],[10,2],[11,2]], sign: 'I' }, 
-	5: { color: 'purple', shape: [[8,2],[9,2],[10,2],[11,2],[11,3]], sign: 'J' }
+	'L': { color: 'orange', shape: [[8,4],[8,3],[9,3],[10,3],[11,3]] }, 
+	'T': { color: 'yellow', shape: [[9,2],[8,3],[9,3],[10,3]] }, 
+	'O': { color: 'blue', shape: [[9,2],[10,2],[9,3],[10,3]] }, 
+	'I': { color: 'green', shape: [[8,2],[9,2],[10,2],[11,2]] }, 
+	'J': { color: 'purple', shape: [[8,2],[9,2],[10,2],[11,2],[11,3]] }
 };
 
 // --- Block Gradient Colors ---
@@ -395,8 +394,11 @@ export class Game {
         drawWalls(this);
 
         if (!this.currentBlock) {
-            const randomBlock =  Math.floor(Math.random() * NB_BLOCK) + 1; 
-            const { shape, color, sign } = TETROMINOES[randomBlock];
+            const listBlocks = Object.keys(TETROMINOES);
+            const randomBlock = Math.floor(Math.random() * listBlocks.length);
+            const sign = listBlocks[randomBlock];
+            const { shape, color } = TETROMINOES[sign];
+            
             this.currentBlock = new Block(shape, color, sign, this);
         }
 

@@ -41,7 +41,7 @@ A modern, responsive Tetris clone built from scratch using Vanilla JavaScript an
 Clone the repository
 
     git clone https://github.com/Harilala42/Tetris-Clone.git
-    cd tetris-clone
+    cd Tetris-Clone
 
 Install dependencies
 
