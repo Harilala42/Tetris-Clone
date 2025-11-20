@@ -43,22 +43,22 @@ font.load()
 
 // --- Tetromino Definitions ---
 const TETROMINOES = {
-	'L': { color: 'orange', shape: [[8,4],[8,3],[9,3],[10,3],[11,3]] }, 
-	'T': { color: 'yellow', shape: [[9,2],[8,3],[9,3],[10,3]] }, 
-	'O': { color: 'blue', shape: [[9,2],[10,2],[9,3],[10,3]] }, 
-	'I': { color: 'green', shape: [[8,2],[9,2],[10,2],[11,2]] }, 
-	'J': { color: 'purple', shape: [[8,2],[9,2],[10,2],[11,2],[11,3]] }
+	L: { color: 'orange', shape: [[8,4],[8,3],[9,3],[10,3],[11,3]] }, 
+	T: { color: 'yellow', shape: [[9,2],[8,3],[9,3],[10,3]] }, 
+	O: { color: 'blue', shape: [[9,2],[10,2],[9,3],[10,3]] }, 
+	I: { color: 'green', shape: [[8,2],[9,2],[10,2],[11,2]] }, 
+	J: { color: 'purple', shape: [[8,2],[9,2],[10,2],[11,2],[11,3]] }
 };
 
 // --- Block Gradient Colors ---
 const GRADIENT_COLORS = {
-	'orange': { lightColor: '#FFD700', darkColor: '#FF8C00' },
-	'yellow': { lightColor: '#FFFF99', darkColor: '#FFD700' },
-	'blue': { lightColor: '#6495ED', darkColor: '#0000CD' }, 
-	'green': { lightColor: '#7FFF00', darkColor: '#006400' },
-	'purple': { lightColor: '#DA70D6', darkColor: '#8A2BE2' },
-	'red': { lightColor: '#FF6347', darkColor: '#8B0000' },
-	'pink': { lightColor: '#FFB6C1', darkColor: '#FF69B4' }
+	orange: { lightColor: '#FFD700', darkColor: '#FF8C00' },
+	yellow: { lightColor: '#FFFF99', darkColor: '#FFD700' },
+	blue: { lightColor: '#6495ED', darkColor: '#0000CD' }, 
+	green: { lightColor: '#7FFF00', darkColor: '#006400' },
+	purple: { lightColor: '#DA70D6', darkColor: '#8A2BE2' },
+	red: { lightColor: '#FF6347', darkColor: '#8B0000' },
+	pink: { lightColor: '#FFB6C1', darkColor: '#FF69B4' }
 };
 
 /*
@@ -446,7 +446,7 @@ export class Game {
             this.stopLoop();
 
             if (bgMusic) bgMusic.pause();
-            playSound(gameOverSound, false);
+            playSound(gameOverSound);
             this.isSceneLoading = false;
 
             displayMessage(this.score, 5, 0.5);
@@ -504,7 +504,7 @@ export class Game {
 
             if (isRowFull) {
                 this.score += BONUS_SCORE;
-                playSound(bonusSound, false);
+                playSound(bonusSound);
 
                 const delta = this.score - this.lastScore;
                 if (delta >= NEXT_SPEED) {
@@ -578,7 +578,7 @@ function loadImage(src) {
 }
 
 // Plays a sound, optionally looping
-function playSound(sound, loop) {
+function playSound(sound, loop = false) {
     if (sound) {
         sound.volume = 0.6;
         sound.currentTime = 0;
