@@ -59,7 +59,7 @@ const GRADIENT_COLORS = {
 export class Block {
     constructor(coord, color, sign, game) {
         // Deep copy coordinates to avoid mutation
-        this.coord = JSON.parse(JSON.stringify(coord));
+        this.coord = structuredClone(coord);
         this.color = color;
         this.sign = sign;
         this.game = game;
