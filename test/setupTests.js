@@ -73,13 +73,3 @@ global.FontFace = class {
         return Promise.resolve(this);
     }
 };
-
-global.window = {
-    localStorage: {
-        getItem: () => "0",
-        setItem: () => {}
-    },
-    addEventListener: () => {}
-};
-
-global.requestAnimationFrame = (cb) => setTimeout(cb, 0);

@@ -5,15 +5,6 @@
 	Handles rendering, game state, input, and scoring.
 */
 
-// --- Global Variables ---
-let ctx;                                // Canvas 2D context
-let width;                              // Canvas Width Size
-let height;                             // Canvas Height Size
-let canvas;                             // Canvas DOM element
-let bgImage;                            // Background image
-let sizeblock;                          // Block Size
-let viewportWidth;                      // Width Screen Size
-
 // --- Game Constants ---
 const MAX_HEIGHT = 4;           		// Y threshold for game over
 const TIME_FLOW = 300;          		// Drop interval (ms)
@@ -77,7 +68,7 @@ export class Block {
     // Draws the block on the canvas
     draw() {
         for (let coord of this.coord) 
-            drawBlock(coord, this.color, ctx);
+            drawBlock(coord, this.color, this.game);
     }
 
     // Moves the block down by one cell (gravity)
@@ -297,11 +288,19 @@ export class EventManager {
 /* Game class for the state management. */
 export class Game {
     constructor() {
-        this.score = 0;
-        this.lastScore = 0;
+        this.canvas = document.getElementById('canvas');
+        this.ctx = this.canvas.getContext('2d');
+
+        this.width = 0;
+        this.height = 0;
+        this.sizeBlock = 0;
         this.numberBlockWidth = 20;
         this.numberBlockHeight = 30;
         this.currentBlock = null;
+        this.bgImage = null;
+
+        this.score = 0;
+        this.lastScore = 0;
 
         this.lastTime = 0;
         this.dropCounter = 0;
@@ -322,13 +321,10 @@ export class Game {
 
     // Init the game scene and loads assets
     async initGame() {
-        canvas = document.getElementById('canvas');
-        ctx = canvas.getContext('2d');
-
         // Touch listeners
-        canvas.addEventListener('touchstart', this.eventManager.handleTouchStart, { passive: true });
-        canvas.addEventListener('touchend', this.eventManager.handleTouchEnd, { passive: true });
-        canvas.addEventListener('touchmove', this.eventManager.handleTouchMove, { passive: true });
+        this.canvas.addEventListener('touchstart', this.eventManager.handleTouchStart, { passive: true });
+        this.canvas.addEventListener('touchend', this.eventManager.handleTouchEnd, { passive: true });
+        this.canvas.addEventListener('touchmove', this.eventManager.handleTouchMove, { passive: true });
 
         // Keyboard controls
         document.addEventListener('keydown', this.eventManager.handleKeyDown);
@@ -337,18 +333,18 @@ export class Game {
         document.getElementById('pause').addEventListener('click', () => this.pauseGame());
         document.getElementById('restart').addEventListener('click', () => this.restartGame());
 
-        bgImage = await loadImage('images/background.png');
+        this.bgImage = await loadImage('images/background.png');
 
         this.resizeCanvas();
 
-        ctx.drawImage(bgImage, 0, 0, width, height);
+        this.ctx.drawImage(this.bgImage, 0, 0, this.width, this.height);
         drawWalls(this);
 
         this.score = window.localStorage.getItem('score') || 0;
         if (!this.score) window.localStorage.setItem('score', '0');
 
-        displayMessage(`${viewportWidth > 768 ? 'Press Enter' : 'Tap'} to Start 🕹️!`, 2, 0.4);
-        displayMessage(this.score, 5, 0.5);
+        displayMessage(`${this.viewportWidth > 768 ? 'Press Enter' : 'Tap'} to Start 🕹️!`, 2, 0.4, this);
+        displayMessage(this.score, 5, 0.5, this);
     }
 
     startLoop() {
@@ -389,8 +385,8 @@ export class Game {
     refreshGame() {
         if (!this.isGridReady) this.fillGrid();
 
-        ctx.clearRect(0, 0, width, height);
-        ctx.drawImage(bgImage, 0, 0, width, height);
+        this.ctx.clearRect(0, 0, this.width, this.height);
+        this.ctx.drawImage(this.bgImage, 0, 0, this.width, this.height);
         drawWalls(this);
 
         if (!this.currentBlock) {
@@ -403,8 +399,8 @@ export class Game {
         }
 
         this.reduceStack();
-        displayMessage(this.score, 5, 0.5);
-        drawScene(ctx, this);
+        displayMessage(this.score, 5, 0.5, this);
+        drawScene(this);
 
         this.currentBlock.draw();
         if (this.currentBlock.collisionWithGround() || this.currentBlock.collisionWithBlock())
@@ -422,8 +418,8 @@ export class Game {
         if (this.isGamePaused) {
             this.stopLoop();
             if (bgMusic) bgMusic.pause();
-            displayMessage(this.score, 5, 0.5);
-            displayMessage('⏸️ Pause ⏸️', 3, 0.25);
+            displayMessage(this.score, 5, 0.5, this);
+            displayMessage('⏸️ Pause ⏸️', 3, 0.25, this);
         } else {
             if (bgMusic) bgMusic.play();
             this.startLoop();
@@ -449,9 +445,9 @@ export class Game {
             playSound(gameOverSound);
             this.isSceneLoading = false;
 
-            displayMessage(this.score, 5, 0.5);
-            displayMessage('💀 Game Over 💀', 3, 0.2);
-            displayMessage(`${viewportWidth > 768 ? 'Press Enter' : 'Tap'} to Restart 🔁!`, 2, 0.3);
+            displayMessage(this.score, 5, 0.5, this);
+            displayMessage('💀 Game Over 💀', 3, 0.2, this);
+            displayMessage(`${this.viewportWidth > 768 ? 'Press Enter' : 'Tap'} to Restart 🔁!`, 2, 0.3, this);
         }
         return (isGameOver);
     }
@@ -552,18 +548,18 @@ export class Game {
     // Resizes the canvas to fit the container
     resizeCanvas() {
         const container = document.querySelector('.container');
-        viewportWidth = container.clientWidth;
+        this.viewportWidth = container.clientWidth;
 
-        const maxWidth = Math.min(viewportWidth, 440);
+        const maxWidth = Math.min(this.viewportWidth, 440);
         const aspectRatio = 440 / 660;
         const newHeight = maxWidth / aspectRatio;
         
-        canvas.width = maxWidth;
-        canvas.height = newHeight;
+        this.canvas.width = maxWidth;
+        this.canvas.height = newHeight;
 
-        width = canvas.width;
-        height = canvas.height;
-        sizeblock = maxWidth / this.numberBlockWidth;
+        this.width = this.canvas.width;
+        this.height = this.canvas.height;
+        this.sizeBlock = maxWidth / this.numberBlockWidth;
     }
 }
 
@@ -587,62 +583,63 @@ function playSound(sound, loop = false) {
     }
 }
 
-// Displays a message on the canvas at a given position and size
-function displayMessage(msg, size, position) {
-    ctx.lineWidth = 5;
-    ctx.fillStyle = 'black';
-    ctx.strokeStyle = 'white';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
+// Displays a message on the  at a given position and size
+function displayMessage(msg, size, position, scene) {
+    scene.ctx.lineWidth = 5;
+    scene.ctx.fillStyle = 'black';
+    scene.ctx.strokeStyle = 'white';
+    scene.ctx.textAlign = 'center';
+    scene.ctx.textBaseline = 'middle';
     
-    const positionX = width / 2;
-    const positionY = height * position;
+    const positionX = scene.width / 2;
+    const positionY = scene.height * position;
     
-    ctx.font = `${size}rem 'Chewy'`;
-    ctx.strokeText(msg, positionX, positionY);
-    ctx.fillText(msg, positionX, positionY);
+    scene.ctx.font = `${size}rem 'Chewy'`;
+    scene.ctx.strokeText(msg, positionX, positionY);
+    scene.ctx.fillText(msg, positionX, positionY);
 }
 
 // Draws a single block cell with gradient and shadow
-function drawBlock(coord, color, ctx) {
-    let x = coord[0] * sizeblock;
-    let y = coord[1] * sizeblock;
+function drawBlock(coord, color, scene) {
+    let x = coord[0] * scene.sizeBlock;
+    let y = coord[1] * scene.sizeBlock;
 
-    const gradient = ctx.createLinearGradient(x, y, x + sizeblock, y + sizeblock);
+    const gradient = scene.ctx.createLinearGradient(x, y, x + scene.sizeBlock, y + scene.sizeBlock);
+
     const { lightColor, darkColor } = GRADIENT_COLORS[color];
     
     gradient.addColorStop(0, lightColor);
     gradient.addColorStop(1, darkColor);
     
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
-    ctx.shadowBlur = 4;
-    ctx.shadowOffsetX = 1;
-    ctx.shadowOffsetY = 1;
+    scene.ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
+    scene.ctx.shadowBlur = 4;
+    scene.ctx.shadowOffsetX = 1;
+    scene.ctx.shadowOffsetY = 1;
     
-    ctx.fillStyle = gradient;
-    ctx.fillRect(x, y, sizeblock, sizeblock);
+    scene.ctx.fillStyle = gradient;
+    scene.ctx.fillRect(x, y, scene.sizeBlock, scene.sizeBlock);
     
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineTo(x + sizeblock, y);
-    ctx.lineTo(x + sizeblock, y + sizeblock);
-    ctx.stroke();
+    scene.ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+    scene.ctx.lineWidth = 1;
+    scene.ctx.beginPath();
+    scene.ctx.moveTo(x, y);
+    scene.ctx.lineTo(x + scene.sizeBlock, y);
+    scene.ctx.lineTo(x + scene.sizeBlock, y + scene.sizeBlock);
+    scene.ctx.stroke();
 
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineTo(x, y + sizeblock);
-    ctx.lineTo(x + sizeblock, y + sizeblock);
-    ctx.stroke();
+    scene.ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+    scene.ctx.beginPath();
+    scene.ctx.moveTo(x, y);
+    scene.ctx.lineTo(x, y + scene.sizeBlock);
+    scene.ctx.lineTo(x + scene.sizeBlock, y + scene.sizeBlock);
+    scene.ctx.stroke();
 }
 
 // Draws all placed blocks in the scene
-function drawScene(ctx, scene) {
+function drawScene(scene) {
     for (let block of scene.storeBlock) {
         for (let coord of block.coord) {
-            drawBlock(coord, block.color, ctx);
+            drawBlock(coord, block.color, scene);
         }
     }
 }
@@ -650,13 +647,13 @@ function drawScene(ctx, scene) {
 // Draws the left and right walls and the ceiling
 function drawWalls(scene) {
     for (let i = 0; i <= scene.numberBlockHeight - 1; i++) {
-        drawBlock([0, i], 'red', ctx);
-        drawBlock([scene.numberBlockWidth - 1, i], 'red', ctx);
+        drawBlock([0, i], 'red', scene);
+        drawBlock([scene.numberBlockWidth - 1, i], 'red', scene);
     }
     for (let limit = 0; limit <= 2 ; limit++) {
         if (limit > 0)
-            drawBlock([scene.numberBlockWidth - 1, MAX_HEIGHT], 'pink', ctx);
+            drawBlock([scene.numberBlockWidth - 1, MAX_HEIGHT], 'pink', scene);
         else
-            drawBlock([0, MAX_HEIGHT], 'pink', ctx);
+            drawBlock([0, MAX_HEIGHT], 'pink', scene);
     }
 }
