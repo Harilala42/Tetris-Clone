@@ -6,10 +6,9 @@
 */
 
 // --- Game Constants ---
-const MAX_HEIGHT = 3;           		// Y threshold for game over
+const MAX_HEIGHT = 4;           		// Y threshold for game over
 const TIME_FLOW = 300;          		// Drop interval (ms)
 const NEXT_SPEED = 500;         		// Score threshold for speed up
-const BOX_COLLIDER = 2;         		// Collision check depth
 const BONUS_SCORE = 100;        		// Score per cleared line
 const MOVE_COOLDOWN = 150;      		// Touch move debounce (ms)
 
@@ -63,12 +62,6 @@ export class Block {
         this.color = color;
         this.sign = sign;
         this.game = game;
-    }
-
-    // Draws the block on the canvas
-    draw() {
-        for (let coord of this.coord) 
-            this.game.render.drawBlock(coord, this.color);
     }
 
     // Moves the block down by one cell (gravity)
@@ -126,49 +119,20 @@ export class Block {
         if (!isWallsKicked) this.coord = newCoords;
     }
 
-    // Checks if any part of the block collides with the ground
-    collisionWithGround() {
-        for (let coord of this.coord) {
-            if (coord[1] === this.game.numberBlockHeight - 1)
-                return true;
-        }
-        return false;
-    }
-
-    // Checks if any part of the block collides with another block
-    collisionWithBlock() {
+    // Checks if any part of the block collides
+    collision(offsetX, offsetY) {
         for (let [x, y] of this.coord) {
-            if (this.game.storeCoord[x][y + 1] === 'full') 
-                return true;
-        }
-        return false;
-    }
+            const newX = x + offsetX;
+            const newY = y + offsetY;
 
-    // Checks collision with left wall or block
-    allLeftCollision() {
-        for (let [x, y] of this.coord) {
-            if (this.game.storeCoord[x - 1][y] === 'full') 
-                return true;
-        }
-        return false;
-    }
+            if (newX < 1 || newX >= this.game.numberBlockWidth - 1)
+                return true; // Collision with side walls
 
-    // Checks collision with right wall or block
-    allRightCollision() {
-        for (let [x, y] of this.coord) {
-            if (this.game.storeCoord[x + 1][y] === 'full') 
-                return true;
-        }
-        return false;
-    }
+            if (newY >= this.game.numberBlockHeight)
+                return true; // Collision with the floor
 
-    // Checks for probable collision below the block
-    probaCollision() {
-        for (let [x, y] of this.coord) {
-            for (let i = 1; i <= BOX_COLLIDER; i++)
-                if (this.game.storeCoord[x][y] === 'full' 
-                    || y + i === this.game.numberBlockHeight - 1)
-                    return true;
+            if (newY >= 0 && this.game.storeCoord[newX][newY] === 'full')
+                return true; // Collision with an existing block
         }
         return false;
     }
@@ -206,16 +170,16 @@ export class EventManager {
             if (!this.scene.isSceneLoading) {
                 this.scene.restartGame();
             } else if (this.scene.currentBlock) {
-                if (!this.scene.currentBlock.collisionWithGround() &&
-                    !this.scene.currentBlock.collisionWithBlock())
-                this.scene.currentBlock.rotation();
+                if (!this.scene.currentBlock.collision(0, 1))
+                    this.scene.currentBlock.rotation();
             }
         }
     }
 
     handleTouchMove = (event) => {
         const touch = event.changedTouches?.[0];
-        if (!touch || this.scene.isGamePaused || !this.scene.isSceneLoading || !this.scene.currentBlock) return;
+        if (!touch || this.scene.isGamePaused || !this.scene.isSceneLoading
+            || !this.scene.currentBlock) return;
 
         const deltaX = touch.clientX - this.tapStartX;
         const deltaY = touch.clientY - this.tapStartY;
@@ -226,16 +190,16 @@ export class EventManager {
 
         // Swipe: Move Block in a direction
         if (currentTime - this.lastMoveTime > MOVE_COOLDOWN && Math.max(absDeltaX, absDeltaY) > 10) {
-            if (this.scene.currentBlock.collisionWithGround() || this.scene.currentBlock.collisionWithBlock()) return;
+            if (this.scene.currentBlock.collision(0, 1)) return;
 
             if (absDeltaX > absDeltaY) {
-                if (deltaX > 0 && !this.scene.currentBlock.allRightCollision())
-                this.scene.currentBlock.direction('right');
-                else if (deltaX < 0 && !this.scene.currentBlock.allLeftCollision())
-                this.scene.currentBlock.direction('left');
+                if (deltaX > 0 && !this.scene.currentBlock.collision(1, 0))
+                    this.scene.currentBlock.direction('right');
+                else if (deltaX < 0 && !this.scene.currentBlock.collision(-1, 0))
+                    this.scene.currentBlock.direction('left');
             } else {
-                if (deltaY > 0 && !this.scene.currentBlock.probaCollision())
-                this.scene.currentBlock.direction('down');
+                if (deltaY > 0 && !this.scene.currentBlock.collision(0, 1))
+                    this.scene.currentBlock.direction('down');
             }
 
             this.tapStartX = touch.clientX;
@@ -246,41 +210,34 @@ export class EventManager {
 
     // -- Keyboard Events --
     handleKeyDown = (event) => {
-        let key = event.key,
-            newdirection = '';
-        const scene = this.scene;
+        let key = event.key;
 
         if (key === 'Enter') 
-            return scene.restartGame();
+            return this.scene.restartGame();
         else if (key === ' ') 
-            return scene.pauseGame();
+            return this.scene.pauseGame();
 
-        if (scene.isGamePaused || !scene.isSceneLoading || !scene.currentBlock) return;
+        if (this.scene.isGamePaused || !this.scene.isSceneLoading 
+            || !this.scene.currentBlock) return;
 
         switch (key) {
             case 'ArrowUp':
-                if (!scene.currentBlock.collisionWithGround() && !scene.currentBlock.collisionWithBlock())
-                    scene.currentBlock.rotation();
-            return;
+                this.scene.currentBlock.rotation();
+            break;
             case 'ArrowDown':
-                newdirection = 'down';
+                if (!this.scene.currentBlock.collision(0, 1))
+                    this.scene.currentBlock.direction('down');
             break;
             case 'ArrowLeft':
-                newdirection = 'left';
+                if (!this.scene.currentBlock.collision(-1, 0))
+                    this.scene.currentBlock.direction('left');
             break;
             case 'ArrowRight':
-                newdirection = 'right';
+                if (!this.scene.currentBlock.collision(1, 0))
+                    this.scene.currentBlock.direction('right');
             break;
             default:
             return;
-        }
-
-        if (!scene.currentBlock.collisionWithGround() && !scene.currentBlock.collisionWithBlock()) {
-            if ((!scene.currentBlock.probaCollision() && newdirection === 'down')
-            || (!scene.currentBlock.allLeftCollision() && newdirection === 'left')
-            || (!scene.currentBlock.allRightCollision() && newdirection === 'right')
-            || (!scene.currentBlock.allLeftCollision() && !scene.currentBlock.allRightCollision()))
-            scene.currentBlock.direction(newdirection);
         }
     }
 }
@@ -470,8 +427,8 @@ export class Game {
         this.render.displayMessage(this.score, 5, 0.5);
         this.drawScene();
 
-        this.currentBlock.draw();
-        if (this.currentBlock.collisionWithGround() || this.currentBlock.collisionWithBlock())
+        this.drawCurrentBlock();
+        if (this.currentBlock.collision(0, 1))
             this.currentBlock.staticInScene();
         else
             this.currentBlock.gravity();
@@ -626,6 +583,14 @@ export class Game {
         this.render = new Render(width, height, sizeBlock);
         this.render.canvas.width = width;
         this.render.canvas.height = height;
+    }
+
+    // Draws the moved block in the scene
+    drawCurrentBlock() {
+        const { coord, color } = this.currentBlock;
+
+        for (let coords of coord) 
+            this.render.drawBlock(coords, color);
     }
 
     // Draws all placed blocks in the scene
