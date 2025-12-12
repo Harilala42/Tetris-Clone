@@ -6,7 +6,7 @@
 */
 
 // --- Game Constants ---
-const MAX_HEIGHT = 4;           		// Y threshold for game over
+const MAX_HEIGHT = 3;           		// Y threshold for game over
 const TIME_FLOW = 300;          		// Drop interval (ms)
 const NEXT_SPEED = 500;         		// Score threshold for speed up
 const BOX_COLLIDER = 2;         		// Collision check depth
@@ -68,7 +68,7 @@ export class Block {
     // Draws the block on the canvas
     draw() {
         for (let coord of this.coord) 
-            drawBlock(coord, this.color, this.game);
+            this.game.render.drawBlock(coord, this.color);
     }
 
     // Moves the block down by one cell (gravity)
@@ -285,19 +285,86 @@ export class EventManager {
     }
 }
 
-/* Game class for the state management. */
-export class Game {
-    constructor() {
+/* Render handles display on the canvas */
+export class Render {
+    constructor(width, height, blockSize) {
         this.canvas = document.getElementById('canvas');
         this.ctx = this.canvas.getContext('2d');
 
-        this.width = 0;
-        this.height = 0;
-        this.sizeBlock = 0;
+        this.width = width;
+        this.height = height;
+        this.sizeBlock = blockSize;
+    }
+
+    clear() {
+        this.ctx.clearRect(0, 0, this.width, this.height);
+    }
+
+    drawImage(image, x, y) {
+        this.ctx.drawImage(image, x, y, this.width, this.height);
+    }
+
+    // Displays a message at a given position and size
+    displayMessage(msg, size, position) {
+        this.ctx.lineWidth = 5;
+        this.ctx.fillStyle = 'black';
+        this.ctx.strokeStyle = 'white';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        
+        const positionX = this.width / 2;
+        const positionY = this.height * position;
+        
+        this.ctx.font = `${size}rem 'Chewy'`;
+        this.ctx.strokeText(msg, positionX, positionY);
+        this.ctx.fillText(msg, positionX, positionY);
+    }
+
+    // Draws a single block cell with gradient and shadow
+    drawBlock(coord, color) {
+        let x = coord[0] * this.sizeBlock;
+        let y = coord[1] * this.sizeBlock;
+
+        const gradient = this.ctx.createLinearGradient(x, y, x + this.sizeBlock, y + this.sizeBlock);
+
+        const { lightColor, darkColor } = GRADIENT_COLORS[color];
+        
+        gradient.addColorStop(0, lightColor);
+        gradient.addColorStop(1, darkColor);
+        
+        this.ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
+        this.ctx.shadowBlur = 4;
+        this.ctx.shadowOffsetX = 1;
+        this.ctx.shadowOffsetY = 1;
+        
+        this.ctx.fillStyle = gradient;
+        this.ctx.fillRect(x, y, this.sizeBlock, this.sizeBlock);
+        
+        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+        this.ctx.lineWidth = 1;
+        this.ctx.beginPath();
+        this.ctx.moveTo(x, y);
+        this.ctx.lineTo(x + this.sizeBlock, y);
+        this.ctx.lineTo(x + this.sizeBlock, y + this.sizeBlock);
+        this.ctx.stroke();
+
+        this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+        this.ctx.beginPath();
+        this.ctx.moveTo(x, y);
+        this.ctx.lineTo(x, y + this.sizeBlock);
+        this.ctx.lineTo(x + this.sizeBlock, y + this.sizeBlock);
+        this.ctx.stroke();
+    }
+}
+
+/* Game class for the state management. */
+export class Game {
+    constructor() {
+        this.render = null;
+
         this.numberBlockWidth = 20;
         this.numberBlockHeight = 30;
         this.currentBlock = null;
-        this.bgImage = null;
 
         this.score = 0;
         this.lastScore = 0;
@@ -317,34 +384,35 @@ export class Game {
         this.eventManager = new EventManager(this);
         this.updateFrame = this.updateFrame.bind(this);
         this.animationId = null;
+
+        this.bgImage = null;
     }
 
     // Init the game scene and loads assets
     async initGame() {
-        // Touch listeners
-        this.canvas.addEventListener('touchstart', this.eventManager.handleTouchStart, { passive: true });
-        this.canvas.addEventListener('touchend', this.eventManager.handleTouchEnd, { passive: true });
-        this.canvas.addEventListener('touchmove', this.eventManager.handleTouchMove, { passive: true });
-
-        // Keyboard controls
-        document.addEventListener('keydown', this.eventManager.handleKeyDown);
-
         // Button controls
         document.getElementById('pause').addEventListener('click', () => this.pauseGame());
         document.getElementById('restart').addEventListener('click', () => this.restartGame());
 
-        this.bgImage = await loadImage('images/background.png');
-
         this.resizeCanvas();
 
-        this.ctx.drawImage(this.bgImage, 0, 0, this.width, this.height);
-        drawWalls(this);
+        // Touch listeners
+        this.render.canvas.addEventListener('touchstart', this.eventManager.handleTouchStart, { passive: true });
+        this.render.canvas.addEventListener('touchend', this.eventManager.handleTouchEnd, { passive: true });
+        this.render.canvas.addEventListener('touchmove', this.eventManager.handleTouchMove, { passive: true });
+
+        // Keyboard controls
+        document.addEventListener('keydown', this.eventManager.handleKeyDown);
+
+        this.bgImage = await loadImage('images/background.png')
+        this.render.drawImage(this.bgImage, 0, 0);
+        this.drawWalls();
 
         this.score = window.localStorage.getItem('score') || 0;
         if (!this.score) window.localStorage.setItem('score', '0');
 
-        displayMessage(`${this.viewportWidth > 768 ? 'Press Enter' : 'Tap'} to Start 🕹️!`, 2, 0.4, this);
-        displayMessage(this.score, 5, 0.5, this);
+        this.render.displayMessage(`${this.viewportWidth > 768 ? 'Press Enter' : 'Tap'} to Start 🕹️!`, 2, 0.4);
+        this.render.displayMessage(this.score, 5, 0.5);
     }
 
     startLoop() {
@@ -385,9 +453,9 @@ export class Game {
     refreshGame() {
         if (!this.isGridReady) this.fillGrid();
 
-        this.ctx.clearRect(0, 0, this.width, this.height);
-        this.ctx.drawImage(this.bgImage, 0, 0, this.width, this.height);
-        drawWalls(this);
+        this.render.clear();
+        this.render.drawImage(this.bgImage, 0, 0);
+        this.drawWalls();
 
         if (!this.currentBlock) {
             const listBlocks = Object.keys(TETROMINOES);
@@ -399,8 +467,8 @@ export class Game {
         }
 
         this.reduceStack();
-        displayMessage(this.score, 5, 0.5, this);
-        drawScene(this);
+        this.render.displayMessage(this.score, 5, 0.5);
+        this.drawScene();
 
         this.currentBlock.draw();
         if (this.currentBlock.collisionWithGround() || this.currentBlock.collisionWithBlock())
@@ -418,8 +486,8 @@ export class Game {
         if (this.isGamePaused) {
             this.stopLoop();
             if (bgMusic) bgMusic.pause();
-            displayMessage(this.score, 5, 0.5, this);
-            displayMessage('⏸️ Pause ⏸️', 3, 0.25, this);
+            this.render.displayMessage(this.score, 5, 0.5);
+            this.render.displayMessage('⏸️ Pause ⏸️', 3, 0.25);
         } else {
             if (bgMusic) bgMusic.play();
             this.startLoop();
@@ -445,9 +513,9 @@ export class Game {
             playSound(gameOverSound);
             this.isSceneLoading = false;
 
-            displayMessage(this.score, 5, 0.5, this);
-            displayMessage('💀 Game Over 💀', 3, 0.2, this);
-            displayMessage(`${this.viewportWidth > 768 ? 'Press Enter' : 'Tap'} to Restart 🔁!`, 2, 0.3, this);
+            this.render.displayMessage(this.score, 5, 0.5);
+            this.render.displayMessage('💀 Game Over 💀', 3, 0.2);
+            this.render.displayMessage(`${this.viewportWidth > 768 ? 'Press Enter' : 'Tap'} to Restart 🔁!`, 2, 0.3);
         }
         return (isGameOver);
     }
@@ -481,10 +549,10 @@ export class Game {
             for (let j = 0; j <= this.numberBlockHeight - 1; j++)
                 this.storeCoord[i].push('empty');
         }
-        for (let j = 0; j <= this.numberBlockHeight - 1; j++)
+        for (let j = 0; j <= this.numberBlockHeight - 1; j++) {
             this.storeCoord[0][j] = 'full';
-        for (let j = 0; j <= this.numberBlockHeight - 1; j++)
             this.storeCoord[this.numberBlockWidth - 1][j] = 'full';
+        }
     }
 
     // Checks for and clears full lines, updates score and speed
@@ -550,16 +618,31 @@ export class Game {
         const container = document.querySelector('.container');
         this.viewportWidth = container.clientWidth;
 
-        const maxWidth = Math.min(this.viewportWidth, 440);
         const aspectRatio = 440 / 660;
-        const newHeight = maxWidth / aspectRatio;
-        
-        this.canvas.width = maxWidth;
-        this.canvas.height = newHeight;
+        const width = Math.min(this.viewportWidth, 440);
+        const height = width / aspectRatio;
+        const sizeBlock = width / this.numberBlockWidth;
 
-        this.width = this.canvas.width;
-        this.height = this.canvas.height;
-        this.sizeBlock = maxWidth / this.numberBlockWidth;
+        this.render = new Render(width, height, sizeBlock);
+        this.render.canvas.width = width;
+        this.render.canvas.height = height;
+    }
+
+    // Draws all placed blocks in the scene
+    drawScene() {
+        for (let block of this.storeBlock) {
+            block.coord.forEach(coord => {
+                this.render.drawBlock(coord, block.color);
+            });
+        }
+    }
+
+    // Draws the left and right walls and the ceiling
+    drawWalls() {
+        for (let i = 0; i <= this.numberBlockHeight - 1; i++) {
+            this.render.drawBlock([0, i], i != MAX_HEIGHT ? 'red' : 'pink');
+            this.render.drawBlock([this.numberBlockWidth - 1, i], i != MAX_HEIGHT ? 'red' : 'pink');
+        }
     }
 }
 
@@ -580,80 +663,5 @@ function playSound(sound, loop = false) {
         sound.currentTime = 0;
         if (loop) sound.loop = true;
         sound.play().catch(err => console.error(`Failed to play sound: ${err}`));
-    }
-}
-
-// Displays a message on the  at a given position and size
-function displayMessage(msg, size, position, scene) {
-    scene.ctx.lineWidth = 5;
-    scene.ctx.fillStyle = 'black';
-    scene.ctx.strokeStyle = 'white';
-    scene.ctx.textAlign = 'center';
-    scene.ctx.textBaseline = 'middle';
-    
-    const positionX = scene.width / 2;
-    const positionY = scene.height * position;
-    
-    scene.ctx.font = `${size}rem 'Chewy'`;
-    scene.ctx.strokeText(msg, positionX, positionY);
-    scene.ctx.fillText(msg, positionX, positionY);
-}
-
-// Draws a single block cell with gradient and shadow
-function drawBlock(coord, color, scene) {
-    let x = coord[0] * scene.sizeBlock;
-    let y = coord[1] * scene.sizeBlock;
-
-    const gradient = scene.ctx.createLinearGradient(x, y, x + scene.sizeBlock, y + scene.sizeBlock);
-
-    const { lightColor, darkColor } = GRADIENT_COLORS[color];
-    
-    gradient.addColorStop(0, lightColor);
-    gradient.addColorStop(1, darkColor);
-    
-    scene.ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
-    scene.ctx.shadowBlur = 4;
-    scene.ctx.shadowOffsetX = 1;
-    scene.ctx.shadowOffsetY = 1;
-    
-    scene.ctx.fillStyle = gradient;
-    scene.ctx.fillRect(x, y, scene.sizeBlock, scene.sizeBlock);
-    
-    scene.ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-    scene.ctx.lineWidth = 1;
-    scene.ctx.beginPath();
-    scene.ctx.moveTo(x, y);
-    scene.ctx.lineTo(x + scene.sizeBlock, y);
-    scene.ctx.lineTo(x + scene.sizeBlock, y + scene.sizeBlock);
-    scene.ctx.stroke();
-
-    scene.ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
-    scene.ctx.beginPath();
-    scene.ctx.moveTo(x, y);
-    scene.ctx.lineTo(x, y + scene.sizeBlock);
-    scene.ctx.lineTo(x + scene.sizeBlock, y + scene.sizeBlock);
-    scene.ctx.stroke();
-}
-
-// Draws all placed blocks in the scene
-function drawScene(scene) {
-    for (let block of scene.storeBlock) {
-        for (let coord of block.coord) {
-            drawBlock(coord, block.color, scene);
-        }
-    }
-}
-
-// Draws the left and right walls and the ceiling
-function drawWalls(scene) {
-    for (let i = 0; i <= scene.numberBlockHeight - 1; i++) {
-        drawBlock([0, i], 'red', scene);
-        drawBlock([scene.numberBlockWidth - 1, i], 'red', scene);
-    }
-    for (let limit = 0; limit <= 2 ; limit++) {
-        if (limit > 0)
-            drawBlock([scene.numberBlockWidth - 1, MAX_HEIGHT], 'pink', scene);
-        else
-            drawBlock([0, MAX_HEIGHT], 'pink', scene);
     }
 }
