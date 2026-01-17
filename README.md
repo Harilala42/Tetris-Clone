@@ -34,7 +34,7 @@ A modern, responsive Tetris clone built from scratch using Vanilla JavaScript an
 
 - Progressive Difficulty: Game speed increases as your score gets higher.
 
-- Unit Tests: Core game logic is tested for reliability.
+- Unit Tests with CI/CD pipeline via GitHub Actions: Core game logic is tested for reliability.
 
 # 🛠️ How to Run Locally
 
