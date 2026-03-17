@@ -1,6 +1,6 @@
 # 🎮 Tetris Clone
 
-A modern, responsive Tetris clone built from scratch using TypeScript and the Canvas API.
+A modern, responsive Tetris clone built from scratch using TypeScript and HTML5 Canvas.
 
 ![screenshot game](/public/images/preview.jpg)
 
