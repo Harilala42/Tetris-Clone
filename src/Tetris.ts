@@ -1,47 +1,59 @@
 "use strict";
 
 /*
-	Main Tetris game logic using Canvas API and Vanilla JS.
+	Main Tetris game logic using Canvas API and TypeScript.
 	Handles rendering, game state, input, and scoring.
 */
 
-// --- Game Constants ---
-const MAX_HEIGHT = 4;           		// Y threshold for game over
-const TIME_FLOW = 300;          		// Drop interval (ms)
-const NEXT_SPEED = 500;         		// Score threshold for speed up
-const BONUS_SCORE = 100;        		// Score per cleared line
-const MOVE_COOLDOWN = 150;      		// Touch move debounce (ms)
+interface IGameConfig
+{
+    TIME_FLOW: number;
+    MAX_HEIGHT: number;
+    NEXT_SPEED: number;
+    BONUS_SCORE: number;
+    MOVE_COOLDOWN: number;
+	GRID_COLUMNS: number;
+	GRID_ROWS: number;
+}
 
-// --- Audio Elements ---
-const bgMusic = document.getElementById('background-music');
-const bonusSound = document.getElementById('line-clear-sound');
-const gameOverSound = document.getElementById('game-over-sound');
+const GAME_CONFIG: IGameConfig = {
+    TIME_FLOW: 300,                 // Drop interval (ms)
+    MAX_HEIGHT: 4,                  // Y threshold for game over
+    NEXT_SPEED: 500,                // Score threshold for speed up
+    BONUS_SCORE: 100,               // Score per cleared line
+    MOVE_COOLDOWN: 150,             // Touch move debounce (ms)
+	GRID_COLUMNS: 20,				// Number of blocks in width
+	GRID_ROWS: 30					// Number of blocks in height
+} as const;
 
-// --- Font Elements ---
-const font = new FontFace('Chewy', 'url(/fonts/Chewy-Regular.ttf)');
-font.load()
-    .then(async () => {
-        document.fonts.add(font);
+type TetrominoSign = 'L' | 'T' | 'O' | 'I' | 'J';
+type BlockColor = 'orange' | 'yellow' | 'blue' | 'green' | 'purple' | 'red' | 'pink';
+type Coordinate = [number, number];
+type GridState = 'empty' | 'full';
 
-        // --- Create the Game ---
-        const game = new Game();
-        await game.initGame();
-    })
-    .catch((err) => {
-        console.error(`Failed to load font: ${err}`);
-    });
+interface ITetromino
+{
+    color: BlockColor;
+    shape: Coordinate[];
+}
+
+interface IGradient
+{
+    lightColor: string;
+    darkColor: string;
+}
 
 // --- Tetromino Definitions ---
-const TETROMINOES = {
-	L: { color: 'orange', shape: [[8,4],[8,3],[9,3],[10,3],[11,3]] }, 
+const TETROMINOES: Record<TetrominoSign, ITetromino> = {
+	L: { color: 'orange', shape: [[8,4],[8,3],[9,3],[10,3]] }, 
 	T: { color: 'yellow', shape: [[9,2],[8,3],[9,3],[10,3]] }, 
 	O: { color: 'blue', shape: [[9,2],[10,2],[9,3],[10,3]] }, 
 	I: { color: 'green', shape: [[8,2],[9,2],[10,2],[11,2]] }, 
-	J: { color: 'purple', shape: [[8,2],[9,2],[10,2],[11,2],[11,3]] }
-};
+	J: { color: 'purple', shape: [[11,3],[9,2],[10,2],[11,2]] }
+} as const;
 
 // --- Block Gradient Colors ---
-const GRADIENT_COLORS = {
+const GRADIENT_COLORS: Record<BlockColor, IGradient> = {
 	orange: { lightColor: '#FFD700', darkColor: '#FF8C00' },
 	yellow: { lightColor: '#FFFF99', darkColor: '#FFD700' },
 	blue: { lightColor: '#6495ED', darkColor: '#0000CD' }, 
@@ -49,14 +61,24 @@ const GRADIENT_COLORS = {
 	purple: { lightColor: '#DA70D6', darkColor: '#8A2BE2' },
 	red: { lightColor: '#FF6347', darkColor: '#8B0000' },
 	pink: { lightColor: '#FFB6C1', darkColor: '#FF69B4' }
-};
+} as const;
+
+// --- Audio Elements ---
+const bgMusic = document.getElementById('background-music') as HTMLAudioElement;
+const bonusSound = document.getElementById('line-clear-sound') as HTMLAudioElement;
+const gameOverSound = document.getElementById('game-over-sound') as HTMLAudioElement;
 
 /*
 	Block class represents a tetromino.
 	Handles drawing, movement, collision and rotation.
 */
 export class Block {
-    constructor(coord, color, sign, game) {
+    coord: Coordinate[];
+    color: BlockColor;
+    sign: TetrominoSign;
+    game: Game;
+
+    constructor(coord: Coordinate[], color: BlockColor, sign: TetrominoSign, game: Game) {
         // Deep copy coordinates to avoid mutation
         this.coord = structuredClone(coord);
         this.color = color;
@@ -65,12 +87,12 @@ export class Block {
     }
 
     // Moves the block down by one cell (gravity)
-    gravity() {
+    gravity(): void {
         this.coord = this.coord.map(([x, y]) => [x, y + 1]);
     }
 
     // Fixes the block in the scene and records its position
-    staticInScene() {
+    staticInScene(): void {
         this.game.currentBlock = null;
         this.game.storeBlock.push({ coord: this.coord, color: this.color });
         for (let [x, y] of this.coord)
@@ -78,7 +100,7 @@ export class Block {
     }
 
     // Moves the block in the specified direction ('left', 'right', 'down')
-    direction(direction) {
+    direction(direction: "left" | "right" | "down"): Coordinate | null {
         this.coord = this.coord.map(([x, y]) => {
             switch(direction) {
                 case 'left':
@@ -89,13 +111,14 @@ export class Block {
                     return [x, y + 1];
             }
         });
+        return null;
     }
 
     // Rotates the block with SRS (Super Rotation System)
-    rotation() {
-        let newCoords = [];
+    rotation(): boolean {
+        let newCoords: Coordinate[] = [];
         const [px, py] = this.coord[2]; // Pivot point
-        if (this.sign === 'O') return; // O-block does not rotate
+        if (this.sign === 'O') return false; // O-block does not rotate
 
         // Calculate rotated positions
         for (let [x, y] of this.coord) {
@@ -105,7 +128,7 @@ export class Block {
         }
 
         // Check for wall or block collision after rotation
-        let isWallsKicked = false;
+        let isWallsKicked: boolean = false;
         for (let [x, y] of newCoords) {
             if (x < 0 || x > this.game.numberBlockWidth - 1 
                 || y < 0 || y > this.game.numberBlockHeight - 1 
@@ -116,11 +139,16 @@ export class Block {
         }
 
         // Apply rotation if no collision
-        if (!isWallsKicked) this.coord = newCoords;
+        if (!isWallsKicked) {
+            this.coord = newCoords;
+            return true;
+        }
+
+        return false;
     }
 
     // Checks if any part of the block collides
-    collision(offsetX, offsetY) {
+    collision(offsetX: number, offsetY: number): boolean {
         for (let [x, y] of this.coord) {
             const newX = x + offsetX;
             const newY = y + offsetY;
@@ -140,7 +168,13 @@ export class Block {
 
 /* EventManager Class handles touch screen and keyboard events. */
 export class EventManager {
-    constructor(scene) {
+    scene: Game;
+    tapStartX: number;
+    tapStartY: number;
+    lastMoveTime: number;
+    tapStartTime: number;
+
+    constructor(scene: Game) {
         this.scene = scene;
 
         this.tapStartX = 0;
@@ -149,7 +183,7 @@ export class EventManager {
         this.tapStartTime = 0;
     }
 
-    handleTouchStart = (event) => {
+    handleTouchStart = (event: TouchEvent): void => {
         const touch = event.touches?.[0];
         if (!touch || this.scene.isGamePaused) return;
 
@@ -158,7 +192,7 @@ export class EventManager {
         this.tapStartY = touch.clientY;
     }
 
-    handleTouchEnd = (event) => {
+    handleTouchEnd = (event: TouchEvent): void => {
         const touch = event.changedTouches?.[0];
         if (!touch || this.scene.isGamePaused) return;
 
@@ -176,7 +210,7 @@ export class EventManager {
         }
     }
 
-    handleTouchMove = (event) => {
+    handleTouchMove = (event: TouchEvent): void => {
         const touch = event.changedTouches?.[0];
         if (!touch || this.scene.isGamePaused || !this.scene.isSceneLoading
             || !this.scene.currentBlock) return;
@@ -189,7 +223,7 @@ export class EventManager {
         const absDeltaY = Math.abs(deltaY);
 
         // Swipe: Move Block in a direction
-        if (currentTime - this.lastMoveTime > MOVE_COOLDOWN && Math.max(absDeltaX, absDeltaY) > 10) {
+        if (currentTime - this.lastMoveTime > GAME_CONFIG.MOVE_COOLDOWN && Math.max(absDeltaX, absDeltaY) > 10) {
             if (this.scene.currentBlock.collision(0, 1)) return;
 
             if (absDeltaX > absDeltaY) {
@@ -209,7 +243,7 @@ export class EventManager {
     }
 
     // -- Keyboard Events --
-    handleKeyDown = (event) => {
+    handleKeyDown = (event: KeyboardEvent): void => {
         let key = event.key;
 
         if (key === 'Enter') 
@@ -244,25 +278,31 @@ export class EventManager {
 
 /* Render handles display on the canvas */
 export class Render {
-    constructor(width, height, blockSize) {
-        this.canvas = document.getElementById('canvas');
-        this.ctx = this.canvas.getContext('2d');
+    width: number;
+    height: number;
+    sizeBlock: number;
+    canvas: HTMLCanvasElement;
+    ctx: CanvasRenderingContext2D;
+
+    constructor(width: number, height: number, blockSize: number) {
+        this.canvas = document.getElementById('canvas') as HTMLCanvasElement;
+        this.ctx = this.canvas.getContext('2d') as CanvasRenderingContext2D;
 
         this.width = width;
         this.height = height;
         this.sizeBlock = blockSize;
     }
 
-    clear() {
+    clear(): void {
         this.ctx.clearRect(0, 0, this.width, this.height);
     }
 
-    drawImage(image, x, y) {
+    drawImage(image: HTMLImageElement, x: number, y: number): void {
         this.ctx.drawImage(image, x, y, this.width, this.height);
     }
 
     // Displays a message at a given position and size
-    displayMessage(msg, size, position) {
+    displayMessage(msg: string, size: number, position: number): void {
         this.ctx.lineWidth = 5;
         this.ctx.fillStyle = 'black';
         this.ctx.strokeStyle = 'white';
@@ -278,7 +318,7 @@ export class Render {
     }
 
     // Draws a single block cell with gradient and shadow
-    drawBlock(coord, color) {
+    drawBlock(coord: Coordinate, color: BlockColor): void {
         let x = coord[0] * this.sizeBlock;
         let y = coord[1] * this.sizeBlock;
 
@@ -316,11 +356,34 @@ export class Render {
 
 /* Game class for the state management. */
 export class Game {
-    constructor() {
-        this.render = null;
+    render: Render;
+    viewportWidth: number;
+    numberBlockWidth: number;
+    numberBlockHeight: number;
+    currentBlock: Block | null;
 
-        this.numberBlockWidth = 20;
-        this.numberBlockHeight = 30;
+    score: number;
+    lastScore: number;
+
+    lastTime: number;
+    dropCounter: number;
+    dropInterval: number;
+
+    isGridReady: boolean;
+    isGamePaused: boolean;
+    isSceneLoading: boolean;
+    isBgMusicPlayed: boolean;
+
+    storeBlock: { coord: Coordinate[], color: BlockColor }[];
+    storeCoord: GridState[][];
+
+    eventManager: EventManager;
+    bgImage: HTMLImageElement | null;
+    animationId: number | null;
+
+    constructor() {
+        this.numberBlockWidth = GAME_CONFIG.GRID_COLUMNS;
+        this.numberBlockHeight = GAME_CONFIG.GRID_ROWS;
         this.currentBlock = null;
 
         this.score = 0;
@@ -328,7 +391,7 @@ export class Game {
 
         this.lastTime = 0;
         this.dropCounter = 0;
-        this.dropInterval = TIME_FLOW;
+        this.dropInterval = GAME_CONFIG.TIME_FLOW;
 
         this.isGridReady = false;
         this.isGamePaused = false;
@@ -343,41 +406,61 @@ export class Game {
         this.animationId = null;
 
         this.bgImage = null;
+
+        const container = document.querySelector('.container') as HTMLElement;
+        this.viewportWidth = container.clientWidth;
+
+        const aspectRatio = 440 / 660;
+        const width = Math.min(this.viewportWidth, 440);
+        const height = width / aspectRatio;
+        const sizeBlock = width / this.numberBlockWidth;
+
+        this.render = new Render(width, height, sizeBlock);
+        this.render.canvas.width = width;
+        this.render.canvas.height = height;
     }
 
     // Init the game scene and loads assets
-    async initGame() {
-        // Button controls
-        document.getElementById('pause').addEventListener('click', () => this.pauseGame());
-        document.getElementById('restart').addEventListener('click', () => this.restartGame());
+    async initGame(): Promise<void> {
+        try {
+            // Button controls
+            const pauseBtn = document.getElementById('pause') as HTMLButtonElement;
+            const restartBtn = document.getElementById('restart') as HTMLButtonElement;
 
-        this.resizeCanvas();
+            pauseBtn.addEventListener('click', (e: MouseEvent) => this.pauseGame());
+            restartBtn.addEventListener('click', (e: MouseEvent) => this.restartGame());
 
-        // Touch listeners
-        this.render.canvas.addEventListener('touchstart', this.eventManager.handleTouchStart, { passive: true });
-        this.render.canvas.addEventListener('touchend', this.eventManager.handleTouchEnd, { passive: true });
-        this.render.canvas.addEventListener('touchmove', this.eventManager.handleTouchMove, { passive: true });
+            // Touch listeners
+            this.render.canvas.addEventListener('touchstart', this.eventManager.handleTouchStart, { passive: true });
+            this.render.canvas.addEventListener('touchend', this.eventManager.handleTouchEnd, { passive: true });
+            this.render.canvas.addEventListener('touchmove', this.eventManager.handleTouchMove, { passive: true });
 
-        // Keyboard controls
-        document.addEventListener('keydown', this.eventManager.handleKeyDown);
+            // Keyboard controls
+            document.addEventListener('keydown', this.eventManager.handleKeyDown);
 
-        this.bgImage = await loadImage('images/background.png')
-        this.render.drawImage(this.bgImage, 0, 0);
-        this.drawWalls();
+            await loadFont('Chewy', '/fonts/Chewy-Regular.ttf');
 
-        this.score = window.localStorage.getItem('score') || 0;
-        if (!this.score) window.localStorage.setItem('score', '0');
+            this.bgImage = await loadImage('images/background.png') as HTMLImageElement;
+            this.render.drawImage(this.bgImage, 0, 0);
+            this.drawWalls();
 
-        this.render.displayMessage(`${this.viewportWidth > 768 ? 'Press Enter' : 'Tap'} to Start 🕹️!`, 2, 0.4);
-        this.render.displayMessage(this.score, 5, 0.5);
+            this.score = Number(window.localStorage.getItem('score')) || 0;
+            if (!this.score) window.localStorage.setItem('score', '0');
+
+            this.render.displayMessage(`${this.viewportWidth > 768 ? 'Press Enter' : 'Tap'} to Start 🕹️!`, 2, 0.4);
+            this.render.displayMessage(this.score.toString(), 5, 0.5);
+        } catch(err: any) {
+            console.error("Error:", err.message);
+        }
     }
 
-    startLoop() {
-        if (this.animationId) return;
-        this.animationId = requestAnimationFrame(this.updateFrame);
+    startLoop(): void {
+        if (!this.animationId) {
+            this.animationId = requestAnimationFrame(this.updateFrame);
+        }
     }
 
-    stopLoop() {
+    stopLoop(): void {
         if (this.animationId) {
             cancelAnimationFrame(this.animationId);
             this.animationId = null;
@@ -385,7 +468,7 @@ export class Game {
     }
 
     // Main animation loop for the game
-    updateFrame(time = 0) {
+    updateFrame(time: number = 0): void {
         const delta = time - this.lastTime;
         this.lastTime = time;
 
@@ -407,15 +490,15 @@ export class Game {
     }
 
     // Handles the logic game in the scene
-    refreshGame() {
+    refreshGame(): void {
         if (!this.isGridReady) this.fillGrid();
 
         this.render.clear();
-        this.render.drawImage(this.bgImage, 0, 0);
+        if (this.bgImage) this.render.drawImage(this.bgImage, 0, 0);
         this.drawWalls();
 
         if (!this.currentBlock) {
-            const listBlocks = Object.keys(TETROMINOES);
+            const listBlocks = Object.keys(TETROMINOES) as TetrominoSign[];
             const randomBlock = Math.floor(Math.random() * listBlocks.length);
             const sign = listBlocks[randomBlock];
             const { shape, color } = TETROMINOES[sign];
@@ -424,7 +507,7 @@ export class Game {
         }
 
         this.reduceStack();
-        this.render.displayMessage(this.score, 5, 0.5);
+        this.render.displayMessage(this.score.toString(), 5, 0.5);
         this.drawScene();
 
         this.drawCurrentBlock();
@@ -435,7 +518,7 @@ export class Game {
     }
 
     // Toggles the game pause state and music
-    pauseGame() {
+    pauseGame(): void {
         if (!this.isSceneLoading) return;
 
         this.isGamePaused = !this.isGamePaused;
@@ -443,7 +526,7 @@ export class Game {
         if (this.isGamePaused) {
             this.stopLoop();
             if (bgMusic) bgMusic.pause();
-            this.render.displayMessage(this.score, 5, 0.5);
+            this.render.displayMessage(this.score.toString(), 5, 0.5);
             this.render.displayMessage('⏸️ Pause ⏸️', 3, 0.25);
         } else {
             if (bgMusic) bgMusic.play();
@@ -452,11 +535,11 @@ export class Game {
     }
 
     // Checks if the game is over (block above MAX_HEIGHT)
-    gameOver() {
+    gameOver(): boolean {
         let isGameOver = false;
         if (this.isGridReady) {
             for (let i = 1; i < this.numberBlockWidth - 1; i++) {
-                if (this.storeCoord[i][MAX_HEIGHT] === 'full') {
+                if (this.storeCoord[i][GAME_CONFIG.MAX_HEIGHT] === 'full') {
                     isGameOver = true;
                     break;
                 }
@@ -470,7 +553,7 @@ export class Game {
             playSound(gameOverSound);
             this.isSceneLoading = false;
 
-            this.render.displayMessage(this.score, 5, 0.5);
+            this.render.displayMessage(this.score.toString(), 5, 0.5);
             this.render.displayMessage('💀 Game Over 💀', 3, 0.2);
             this.render.displayMessage(`${this.viewportWidth > 768 ? 'Press Enter' : 'Tap'} to Restart 🔁!`, 2, 0.3);
         }
@@ -478,14 +561,14 @@ export class Game {
     }
 
     // Resets all game state and restarts the game
-    restartGame() {
+    restartGame(): void {
         this.score = 0;
         this.lastScore = 0;
         this.currentBlock = null;
 
         this.lastTime = 0;
         this.dropCounter = 0;
-        this.dropInterval = TIME_FLOW;
+        this.dropInterval = GAME_CONFIG.TIME_FLOW;
 
         this.isGridReady = false;
         this.isGamePaused = false;
@@ -499,7 +582,7 @@ export class Game {
     }
 
     // Init the grid and fills wall cells as 'full'
-    fillGrid() {
+    fillGrid(): void {
         this.isGridReady = true; 
         for (let i = 0; i <= this.numberBlockWidth - 1; i++) {
             this.storeCoord.push([]);
@@ -513,7 +596,7 @@ export class Game {
     }
 
     // Checks for and clears full lines, updates score and speed
-    reduceStack() {
+    reduceStack(): void {
         for (let y = this.numberBlockHeight - 1; y >= 0; y--) {
             let isRowFull = true;
             for (let x = 1; x < this.numberBlockWidth - 1; x++) {
@@ -524,13 +607,13 @@ export class Game {
             }
 
             if (isRowFull) {
-                this.score += BONUS_SCORE;
+                this.score += GAME_CONFIG.BONUS_SCORE;
                 playSound(bonusSound);
 
                 const delta = this.score - this.lastScore;
-                if (delta >= NEXT_SPEED) {
+                if (delta >= GAME_CONFIG.NEXT_SPEED) {
                     this.lastScore = this.score;
-                    this.dropInterval = Math.max(this.dropInterval - 25, TIME_FLOW - 100);
+                    this.dropInterval = Math.max(this.dropInterval - 25, GAME_CONFIG.TIME_FLOW - 100);
                 }
 
                 if (this.score > Number(window.localStorage.getItem('score')))
@@ -570,31 +653,16 @@ export class Game {
         }
     }
 
-    // Resizes the canvas to fit the container
-    resizeCanvas() {
-        const container = document.querySelector('.container');
-        this.viewportWidth = container.clientWidth;
-
-        const aspectRatio = 440 / 660;
-        const width = Math.min(this.viewportWidth, 440);
-        const height = width / aspectRatio;
-        const sizeBlock = width / this.numberBlockWidth;
-
-        this.render = new Render(width, height, sizeBlock);
-        this.render.canvas.width = width;
-        this.render.canvas.height = height;
-    }
-
     // Draws the moved block in the scene
-    drawCurrentBlock() {
-        const { coord, color } = this.currentBlock;
+    drawCurrentBlock(): void {
+        if (!this.currentBlock) return;
 
-        for (let coords of coord) 
-            this.render.drawBlock(coords, color);
+        for (let coords of this.currentBlock.coord) 
+            this.render.drawBlock(coords, this.currentBlock.color);
     }
 
     // Draws all placed blocks in the scene
-    drawScene() {
+    drawScene(): void {
         for (let block of this.storeBlock) {
             block.coord.forEach(coord => {
                 this.render.drawBlock(coord, block.color);
@@ -603,30 +671,51 @@ export class Game {
     }
 
     // Draws the left and right walls and the ceiling
-    drawWalls() {
+    drawWalls(): void {
         for (let i = 0; i <= this.numberBlockHeight - 1; i++) {
-            this.render.drawBlock([0, i], i != MAX_HEIGHT ? 'red' : 'pink');
-            this.render.drawBlock([this.numberBlockWidth - 1, i], i != MAX_HEIGHT ? 'red' : 'pink');
+            this.render.drawBlock([0, i], i != GAME_CONFIG.MAX_HEIGHT ? 'red' : 'pink');
+            this.render.drawBlock([this.numberBlockWidth - 1, i], i != GAME_CONFIG.MAX_HEIGHT ? 'red' : 'pink');
         }
     }
 }
 
-// Loads an image and returns a Promise
-function loadImage(src) {
+// Loads an image assets
+function loadImage(src: string): Promise<HTMLImageElement> {
     return new Promise((resolve, reject) => {
         const img = new Image();
+
         img.src = src;
         img.onload = () => resolve(img);
-        img.onerror = () => reject(`Failed to load image: ${src}`);
+        img.onerror = () => reject(new Error(`Failed to load image: ${src}`));
+    });
+}
+
+// Loads a font assets
+function loadFont(name: string, url: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+        const font = new FontFace(name, `url(${url})`);
+
+        font.load()
+            .then((loadedFont) => {
+                document.fonts.add(loadedFont);
+                resolve();
+            })
+            .catch((err) => {
+                reject(new Error(`Failed to load font "${name}": ${err}`));
+            });
     });
 }
 
 // Plays a sound, optionally looping
-function playSound(sound, loop = false) {
+function playSound(sound: HTMLAudioElement, loop: boolean = false): void {
     if (sound) {
         sound.volume = 0.6;
         sound.currentTime = 0;
         if (loop) sound.loop = true;
-        sound.play().catch(err => console.error(`Failed to play sound: ${err}`));
+        sound.play().catch((err: any) => console.error(`Failed to play sound: ${err}`));
     }
 }
+
+// --- Start the game ---
+const game = new Game();
+game.initGame();

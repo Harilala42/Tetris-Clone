@@ -4,7 +4,7 @@ import { describe, beforeEach, test, expect } from 'vitest';
 import { Game } from "../src/Tetris.js";
 
 describe('reduceStack', () => {
-    let game;
+    let game : Game;
     beforeEach(() => {
         game = new Game();
 
@@ -19,17 +19,21 @@ describe('reduceStack', () => {
     });
 
     test('clears a full line and increases score', () => {
-        let lastScore = game.score;
+        let lastScore: number = game.score;
+        
         game.reduceStack();
+
         for (let x = 1; x < game.numberBlockWidth - 1; x++)
             expect(game.storeCoord[x][10]).toBe("empty");
         expect(game.score).toBe(lastScore + 100);
     });
 
     test("should't clear an almost full line", () => {
-        let lastScore = game.score;
+        let lastScore: number = game.score;
         game.storeCoord[5][10] = "empty";
+
         game.reduceStack();
+
         for (let x = 1; x < game.numberBlockWidth - 1; x++) {
             if (x === 5)
                 expect(game.storeCoord[x][10]).toBe("empty");
@@ -40,9 +44,11 @@ describe('reduceStack', () => {
     });
 
     test("after clearing a line, rows above fall down", () => {
-        let lastScore = game.score;
+        let lastScore: number = game.score;
         game.storeCoord[5][9] = "full";
+
         game.reduceStack();
+
         expect(game.storeCoord[5][10]).toBe("full");
         expect(game.storeCoord[5][9]).toBe("empty");
         expect(game.score).toBe(lastScore + 100);
